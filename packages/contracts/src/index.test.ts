@@ -104,6 +104,20 @@ const runnerJobResult: RunnerJobResult = {
   status: "completed",
   startedAt: timestamp,
   completedAt: timestamp,
+  execution: {
+    containerName: "kordo-job-123",
+    command: runnerJob.command.argv,
+    exitCode: 0,
+    stdout: "v24.12.0\n",
+    stderr: "",
+    startedAt: timestamp,
+    completedAt: timestamp,
+    durationMs: 100,
+    timedOut: false,
+    cleanup: {
+      removed: true,
+    },
+  },
   artifactManifest,
   summary: "Runner stub completed.",
 };

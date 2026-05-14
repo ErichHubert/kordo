@@ -22,7 +22,7 @@ Run the control-plane migrations:
 corepack pnpm --filter @kordo/control-plane db:migrate
 ```
 
-Start the runner stub:
+Start the runner:
 
 ```sh
 corepack pnpm --filter @kordo/runner dev
@@ -50,13 +50,20 @@ curl -sS -X POST http://127.0.0.1:4100/runs \
     "workflowId": "artifexarena.issue.fix",
     "input": {
       "source": "manual",
-      "title": "Verify runner stub"
+      "title": "Verify Docker sandbox"
     },
     "sandboxProfile": "docker-local-default",
     "allowedGatewayRoutes": []
   }'
 ```
 
-In Milestone 4, the control plane calls the runner stub synchronously. The run
-should move from `queued` to `running` to `completed` without starting a Docker
-sandbox yet.
+In Milestone 5, the control plane calls the runner synchronously. The runner
+starts a disposable Docker container, executes `node --version`, captures stdout,
+stderr, exit code, duration, and cleanup status, then returns the result.
+
+The run should move from `queued` to `running` to `completed`. Use the returned
+`runnerJobId` to inspect sandbox output:
+
+```sh
+curl -sS http://127.0.0.1:4200/jobs/<runnerJobId>
+```

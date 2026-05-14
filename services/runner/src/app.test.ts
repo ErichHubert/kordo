@@ -1,10 +1,15 @@
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { RunnerJobResultSchema, type RunnerJob } from "@kordo/contracts";
+import {
+  SandboxExecutionResultSchema,
+  RunnerJobResultSchema,
+  type RunnerJob,
+} from "@kordo/contracts";
 
 import { buildApp } from "./app.js";
 import { createInMemoryRunnerJobRepository } from "./jobs.js";
+import type { SandboxBackend } from "./sandbox/backend.js";
 
 const createdAt = "2026-05-14T16:00:00.000Z";
 
@@ -39,7 +44,7 @@ describe("runner job API", () => {
 
   it("accepts and completes a runner job", async () => {
     app = buildApp({
-      repository: createInMemoryRunnerJobRepository(),
+      repository: createInMemoryRunRepositoryWithFakeSandbox(),
     });
 
     const response = await app.inject({
@@ -57,12 +62,19 @@ describe("runner job API", () => {
       runId: runnerJob.runId,
       status: "completed",
     });
+    expect(result.execution).toMatchObject({
+      command: runnerJob.command.argv,
+      exitCode: 0,
+      stdout: "v24.12.0\n",
+      stderr: "",
+      timedOut: false,
+    });
     expect(result.artifactManifest.artifacts).toEqual([]);
   });
 
   it("reads a completed runner job", async () => {
     app = buildApp({
-      repository: createInMemoryRunnerJobRepository(),
+      repository: createInMemoryRunRepositoryWithFakeSandbox(),
     });
 
     const createResponse = await app.inject({
@@ -83,7 +95,7 @@ describe("runner job API", () => {
 
   it("rejects invalid runner jobs", async () => {
     app = buildApp({
-      repository: createInMemoryRunnerJobRepository(),
+      repository: createInMemoryRunRepositoryWithFakeSandbox(),
     });
 
     const response = await app.inject({
@@ -106,7 +118,7 @@ describe("runner job API", () => {
 
   it("returns 404 for missing jobs", async () => {
     app = buildApp({
-      repository: createInMemoryRunnerJobRepository(),
+      repository: createInMemoryRunRepositoryWithFakeSandbox(),
     });
 
     const response = await app.inject({
@@ -120,3 +132,30 @@ describe("runner job API", () => {
     });
   });
 });
+
+function createInMemoryRunRepositoryWithFakeSandbox() {
+  return createInMemoryRunnerJobRepository(createFakeSandboxBackend());
+}
+
+function createFakeSandboxBackend(): SandboxBackend {
+  return {
+    async execute(job) {
+      const now = new Date().toISOString();
+
+      return SandboxExecutionResultSchema.parse({
+        containerName: `kordo-${job.id}`,
+        command: job.command.argv,
+        exitCode: 0,
+        stdout: "v24.12.0\n",
+        stderr: "",
+        startedAt: now,
+        completedAt: now,
+        durationMs: 12,
+        timedOut: false,
+        cleanup: {
+          removed: true,
+        },
+      });
+    },
+  };
+}

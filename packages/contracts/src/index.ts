@@ -157,6 +157,28 @@ export const ArtifactManifestSchema = z
   })
   .strict();
 
+export const SandboxCleanupResultSchema = z
+  .object({
+    removed: z.boolean(),
+    message: z.string().optional(),
+  })
+  .strict();
+
+export const SandboxExecutionResultSchema = z
+  .object({
+    containerName: NonEmptyStringSchema,
+    command: z.array(NonEmptyStringSchema).min(1),
+    exitCode: z.number().int().nonnegative(),
+    stdout: z.string(),
+    stderr: z.string(),
+    startedAt: TimestampSchema,
+    completedAt: TimestampSchema,
+    durationMs: z.number().int().nonnegative(),
+    timedOut: z.boolean(),
+    cleanup: SandboxCleanupResultSchema,
+  })
+  .strict();
+
 export const RunnerJobResultSchema = z
   .object({
     id: RunnerJobIdSchema,
@@ -164,6 +186,7 @@ export const RunnerJobResultSchema = z
     status: RunnerJobStatusSchema,
     startedAt: TimestampSchema,
     completedAt: TimestampSchema,
+    execution: SandboxExecutionResultSchema,
     artifactManifest: ArtifactManifestSchema,
     summary: z.string().optional(),
     failureReason: FailureReasonSchema.optional(),
@@ -189,4 +212,6 @@ export type EnvironmentPolicy = z.infer<typeof EnvironmentPolicySchema>;
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
 export type PhaseEvent = z.infer<typeof PhaseEventSchema>;
 export type ArtifactManifest = z.infer<typeof ArtifactManifestSchema>;
+export type SandboxCleanupResult = z.infer<typeof SandboxCleanupResultSchema>;
+export type SandboxExecutionResult = z.infer<typeof SandboxExecutionResultSchema>;
 export type RunnerJobResult = z.infer<typeof RunnerJobResultSchema>;

@@ -177,6 +177,20 @@ function createCompletingRunnerClient(): RunnerClient {
         status: "completed",
         startedAt: now,
         completedAt: now,
+        execution: {
+          containerName: `kordo-${job.id}`,
+          command: job.command.argv,
+          exitCode: 0,
+          stdout: "v24.12.0\n",
+          stderr: "",
+          startedAt: now,
+          completedAt: now,
+          durationMs: 12,
+          timedOut: false,
+          cleanup: {
+            removed: true,
+          },
+        },
         artifactManifest: {
           runId: job.runId,
           generatedAt: now,
