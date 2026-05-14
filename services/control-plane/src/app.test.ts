@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   PhaseEventSchema,
+  RunResultSchema,
   RunnerJobResultSchema,
   RunStateSchema,
   type RunRequest,
@@ -82,6 +83,50 @@ describe("control-plane run API", () => {
 
     expect(readResponse.statusCode).toBe(200);
     expect(RunStateSchema.parse(readResponse.json())).toEqual(createdRun);
+  });
+
+  it("reads a completed run result with sandbox execution output", async () => {
+    app = buildApp({
+      repository: createInMemoryRunRepository(),
+      runnerClient: createCompletingRunnerClient(),
+    });
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: runRequest,
+    });
+    const createdRun = RunStateSchema.parse(createResponse.json());
+
+    const resultResponse = await app.inject({
+      method: "GET",
+      url: `/runs/${createdRun.id}/result`,
+    });
+
+    expect(resultResponse.statusCode).toBe(200);
+
+    const result = RunResultSchema.parse(resultResponse.json());
+
+    expect(result).toMatchObject({
+      runId: createdRun.id,
+      runnerJobId: createdRun.runnerJobId,
+      status: "completed",
+      execution: {
+        command: ["node", "--version"],
+        exitCode: 0,
+        stdout: "v24.12.0\n",
+        stderr: "",
+        durationMs: 12,
+        timedOut: false,
+        cleanup: {
+          removed: true,
+        },
+      },
+      artifactManifest: {
+        runId: createdRun.id,
+        artifacts: [],
+      },
+    });
   });
 
   it("lists queued, running, and completed run events", async () => {

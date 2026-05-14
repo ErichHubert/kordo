@@ -1,9 +1,11 @@
 import {
   PhaseEventSchema,
+  RunResultSchema,
   RunStateSchema,
   type FailureReason,
   type PhaseEvent,
   type RunRequest,
+  type RunResult,
   type RunState,
   type RunnerJobResult,
 } from "@kordo/contracts";
@@ -11,6 +13,7 @@ import {
 import {
   createPhaseEvent,
   createQueuedRun,
+  createRunResultFromRunnerResult,
   type CreateRunResult,
   type RunRepository,
 } from "./run-repository.js";
@@ -19,6 +22,8 @@ export class InMemoryRunRepository implements RunRepository {
   private readonly runs = new Map<string, RunState>();
 
   private readonly events = new Map<string, PhaseEvent[]>();
+
+  private readonly results = new Map<string, RunResult>();
 
   async createRun(request: RunRequest): Promise<CreateRunResult> {
     const result = createQueuedRun(request);
@@ -35,6 +40,11 @@ export class InMemoryRunRepository implements RunRepository {
   async getRun(id: string): Promise<RunState | null> {
     const run = this.runs.get(id);
     return run ? RunStateSchema.parse(run) : null;
+  }
+
+  async getRunResult(runId: string): Promise<RunResult | null> {
+    const result = this.results.get(runId);
+    return result ? RunResultSchema.parse(result) : null;
   }
 
   async listRunEvents(runId: string): Promise<PhaseEvent[]> {
@@ -62,6 +72,7 @@ export class InMemoryRunRepository implements RunRepository {
 
   async finishRunFromRunnerResult(result: RunnerJobResult): Promise<RunState> {
     const existingRun = this.requireRun(result.runId);
+    const runResult = createRunResultFromRunnerResult(result);
     const nextRun = RunStateSchema.parse({
       ...existingRun,
       status: result.status,
@@ -73,6 +84,7 @@ export class InMemoryRunRepository implements RunRepository {
     });
 
     this.runs.set(result.runId, nextRun);
+    this.results.set(result.runId, runResult);
     this.appendEvent(
       createPhaseEvent(
         result.runId,

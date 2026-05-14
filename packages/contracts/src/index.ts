@@ -193,6 +193,20 @@ export const RunnerJobResultSchema = z
   })
   .strict();
 
+export const RunResultSchema = z
+  .object({
+    runId: RunIdSchema,
+    runnerJobId: RunnerJobIdSchema,
+    status: RunnerJobStatusSchema,
+    startedAt: TimestampSchema,
+    completedAt: TimestampSchema,
+    execution: SandboxExecutionResultSchema,
+    artifactManifest: ArtifactManifestSchema,
+    summary: z.string().optional(),
+    failureReason: FailureReasonSchema.optional(),
+  })
+  .strict();
+
 export type Timestamp = z.infer<typeof TimestampSchema>;
 export type RunStatus = z.infer<typeof RunStatusSchema>;
 export type PhaseStatus = z.infer<typeof PhaseStatusSchema>;
@@ -215,3 +229,4 @@ export type ArtifactManifest = z.infer<typeof ArtifactManifestSchema>;
 export type SandboxCleanupResult = z.infer<typeof SandboxCleanupResultSchema>;
 export type SandboxExecutionResult = z.infer<typeof SandboxExecutionResultSchema>;
 export type RunnerJobResult = z.infer<typeof RunnerJobResultSchema>;
+export type RunResult = z.infer<typeof RunResultSchema>;

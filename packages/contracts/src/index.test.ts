@@ -4,6 +4,7 @@ import {
   ArtifactManifestSchema,
   ArtifactRefSchema,
   PhaseEventSchema,
+  RunResultSchema,
   RunRequestSchema,
   RunStateSchema,
   RunnerJobResultSchema,
@@ -12,6 +13,7 @@ import {
   type ArtifactManifest,
   type ArtifactRef,
   type PhaseEvent,
+  type RunResult,
   type RunRequest,
   type RunState,
   type RunnerJobResult,
@@ -122,6 +124,17 @@ const runnerJobResult: RunnerJobResult = {
   summary: "Runner stub completed.",
 };
 
+const runResult: RunResult = {
+  runId: runnerJobResult.runId,
+  runnerJobId: runnerJobResult.id,
+  status: runnerJobResult.status,
+  startedAt: runnerJobResult.startedAt,
+  completedAt: runnerJobResult.completedAt,
+  execution: runnerJobResult.execution,
+  artifactManifest: runnerJobResult.artifactManifest,
+  summary: runnerJobResult.summary,
+};
+
 describe("@kordo/contracts", () => {
   it("exports the package name", () => {
     expect(packageName).toBe("@kordo/contracts");
@@ -186,5 +199,15 @@ describe("@kordo/contracts", () => {
     expect(RunnerJobResultSchema.safeParse({ ...runnerJobResult, status: "running" }).success).toBe(
       false,
     );
+  });
+
+  it("accepts a valid RunResult", () => {
+    expect(RunResultSchema.parse(runResult)).toEqual(runResult);
+  });
+
+  it("rejects a RunResult without execution output", () => {
+    const { execution: _execution, ...withoutExecution } = runResult;
+
+    expect(RunResultSchema.safeParse(withoutExecution).success).toBe(false);
   });
 });

@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 import {
   type FailureReason,
   PhaseEventSchema,
+  RunResultSchema,
   RunStateSchema,
   type PhaseEvent,
   type RunRequest,
+  type RunResult,
   type RunState,
   type RunnerJobResult,
 } from "@kordo/contracts";
@@ -18,6 +20,7 @@ export interface CreateRunResult {
 export interface RunRepository {
   createRun(request: RunRequest): Promise<CreateRunResult>;
   getRun(id: string): Promise<RunState | null>;
+  getRunResult(runId: string): Promise<RunResult | null>;
   listRunEvents(runId: string): Promise<PhaseEvent[]>;
   markRunRunning(runId: string, runnerJobId: string): Promise<RunState>;
   finishRunFromRunnerResult(result: RunnerJobResult): Promise<RunState>;
@@ -60,6 +63,20 @@ export function createQueuedRun(request: RunRequest, now = new Date()): CreateRu
     run,
     events: [queuedEvent],
   };
+}
+
+export function createRunResultFromRunnerResult(result: RunnerJobResult): RunResult {
+  return RunResultSchema.parse({
+    runId: result.runId,
+    runnerJobId: result.id,
+    status: result.status,
+    startedAt: result.startedAt,
+    completedAt: result.completedAt,
+    execution: result.execution,
+    artifactManifest: result.artifactManifest,
+    ...(result.summary ? { summary: result.summary } : {}),
+    ...(result.failureReason ? { failureReason: result.failureReason } : {}),
+  });
 }
 
 export function createPhaseEvent(

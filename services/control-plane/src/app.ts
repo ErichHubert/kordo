@@ -1,6 +1,11 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 
-import { NonEmptyStringSchema, RunRequestSchema, type RunState } from "@kordo/contracts";
+import {
+  NonEmptyStringSchema,
+  RunRequestSchema,
+  type RunResult,
+  type RunState,
+} from "@kordo/contracts";
 
 import type { RunRepository } from "./repositories/run-repository.js";
 import type { RunnerClient } from "./runner-client.js";
@@ -88,6 +93,28 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
 
     const events = await options.repository.listRunEvents(id);
     return reply.send(events);
+  });
+
+  app.get("/runs/:id/result", async (request, reply) => {
+    const id = parseRunId(request.params);
+
+    if (!id) {
+      return reply.code(400).send({ error: "InvalidRunId" });
+    }
+
+    const run = await options.repository.getRun(id);
+
+    if (!run) {
+      return reply.code(404).send({ error: "RunNotFound" });
+    }
+
+    const result = await options.repository.getRunResult(id);
+
+    if (!result) {
+      return reply.code(404).send({ error: "RunResultNotFound" });
+    }
+
+    return reply.send(result satisfies RunResult);
   });
 
   return app;

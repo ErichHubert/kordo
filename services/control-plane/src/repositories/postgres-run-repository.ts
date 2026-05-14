@@ -4,10 +4,12 @@ import pg from "pg";
 
 import {
   PhaseEventSchema,
+  RunResultSchema,
   RunStateSchema,
   type FailureReason,
   type PhaseEvent,
   type RunRequest,
+  type RunResult,
   type RunState,
   type RunnerJobResult,
 } from "@kordo/contracts";
@@ -16,6 +18,7 @@ import * as schema from "../db/schema.js";
 import {
   createPhaseEvent,
   createQueuedRun,
+  createRunResultFromRunnerResult,
   type CreateRunResult,
   type RunRepository,
 } from "./run-repository.js";
@@ -25,6 +28,8 @@ type Database = NodePgDatabase<typeof schema>;
 type RunRow = typeof schema.runs.$inferSelect;
 
 type RunEventRow = typeof schema.runEvents.$inferSelect;
+
+type RunResultRow = typeof schema.runResults.$inferSelect;
 
 export class PostgresRunRepository implements RunRepository {
   constructor(
@@ -74,6 +79,17 @@ export class PostgresRunRepository implements RunRepository {
     return row ? mapRunRow(row) : null;
   }
 
+  async getRunResult(runId: string): Promise<RunResult | null> {
+    const rows = await this.db
+      .select()
+      .from(schema.runResults)
+      .where(eq(schema.runResults.runId, runId))
+      .limit(1);
+
+    const [row] = rows;
+    return row ? mapRunResultRow(row) : null;
+  }
+
   async listRunEvents(runId: string): Promise<PhaseEvent[]> {
     const rows = await this.db
       .select()
@@ -114,6 +130,7 @@ export class PostgresRunRepository implements RunRepository {
   }
 
   async finishRunFromRunnerResult(result: RunnerJobResult): Promise<RunState> {
+    const runResult = createRunResultFromRunnerResult(result);
     const event = createPhaseEvent(
       result.runId,
       "runner",
@@ -144,6 +161,18 @@ export class PostgresRunRepository implements RunRepository {
         message: event.message,
         artifactIds: event.artifactIds,
         occurredAt: new Date(event.occurredAt),
+      });
+
+      await tx.insert(schema.runResults).values({
+        runId: runResult.runId,
+        runnerJobId: runResult.runnerJobId,
+        status: runResult.status,
+        startedAt: new Date(runResult.startedAt),
+        completedAt: new Date(runResult.completedAt),
+        execution: runResult.execution,
+        artifactManifest: runResult.artifactManifest,
+        summary: runResult.summary,
+        failureReason: runResult.failureReason,
       });
     });
 
@@ -231,5 +260,19 @@ function mapRunEventRow(row: RunEventRow): PhaseEvent {
     ...(row.message ? { message: row.message } : {}),
     artifactIds: row.artifactIds,
     occurredAt: row.occurredAt.toISOString(),
+  });
+}
+
+function mapRunResultRow(row: RunResultRow): RunResult {
+  return RunResultSchema.parse({
+    runId: row.runId,
+    runnerJobId: row.runnerJobId,
+    status: row.status,
+    startedAt: row.startedAt.toISOString(),
+    completedAt: row.completedAt.toISOString(),
+    execution: row.execution,
+    artifactManifest: row.artifactManifest,
+    ...(row.summary ? { summary: row.summary } : {}),
+    ...(row.failureReason ? { failureReason: row.failureReason } : {}),
   });
 }
