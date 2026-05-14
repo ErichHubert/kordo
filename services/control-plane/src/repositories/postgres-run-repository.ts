@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 
@@ -20,6 +20,7 @@ import {
   createQueuedRun,
   createRunResultFromRunnerResult,
   type CreateRunResult,
+  type ListRunsOptions,
   type RunRepository,
 } from "./run-repository.js";
 
@@ -77,6 +78,23 @@ export class PostgresRunRepository implements RunRepository {
 
     const [row] = rows;
     return row ? mapRunRow(row) : null;
+  }
+
+  async listRuns(options: ListRunsOptions): Promise<RunState[]> {
+    const rows = options.status
+      ? await this.db
+          .select()
+          .from(schema.runs)
+          .where(eq(schema.runs.status, options.status))
+          .orderBy(desc(schema.runs.createdAt))
+          .limit(options.limit)
+      : await this.db
+          .select()
+          .from(schema.runs)
+          .orderBy(desc(schema.runs.createdAt))
+          .limit(options.limit);
+
+    return rows.map(mapRunRow);
   }
 
   async getRunResult(runId: string): Promise<RunResult | null> {

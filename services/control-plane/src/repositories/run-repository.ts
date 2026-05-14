@@ -8,6 +8,7 @@ import {
   type PhaseEvent,
   type RunRequest,
   type RunResult,
+  type RunStatus,
   type RunState,
   type RunnerJobResult,
 } from "@kordo/contracts";
@@ -17,8 +18,14 @@ export interface CreateRunResult {
   events: PhaseEvent[];
 }
 
+export interface ListRunsOptions {
+  limit: number;
+  status?: RunStatus;
+}
+
 export interface RunRepository {
   createRun(request: RunRequest): Promise<CreateRunResult>;
+  listRuns(options: ListRunsOptions): Promise<RunState[]>;
   getRun(id: string): Promise<RunState | null>;
   getRunResult(runId: string): Promise<RunResult | null>;
   listRunEvents(runId: string): Promise<PhaseEvent[]>;

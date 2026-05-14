@@ -85,6 +85,102 @@ describe("control-plane run API", () => {
     expect(RunStateSchema.parse(readResponse.json())).toEqual(createdRun);
   });
 
+  it("lists runs newest first", async () => {
+    app = buildApp({
+      repository: createInMemoryRunRepository(),
+      runnerClient: createCompletingRunnerClient(),
+    });
+
+    const firstCreateResponse = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: {
+        ...runRequest,
+        input: {
+          ...runRequest.input,
+          title: "First run",
+        },
+      },
+    });
+    const firstRun = RunStateSchema.parse(firstCreateResponse.json());
+
+    await waitForClockTick();
+
+    const secondCreateResponse = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: {
+        ...runRequest,
+        input: {
+          ...runRequest.input,
+          title: "Second run",
+        },
+      },
+    });
+    const secondRun = RunStateSchema.parse(secondCreateResponse.json());
+
+    const listResponse = await app.inject({
+      method: "GET",
+      url: "/runs",
+    });
+
+    expect(listResponse.statusCode).toBe(200);
+
+    const runs = RunStateSchema.array().parse(listResponse.json());
+
+    expect(runs.map((run) => run.id)).toEqual([secondRun.id, firstRun.id]);
+  });
+
+  it("filters listed runs by status and limit", async () => {
+    app = buildApp({
+      repository: createInMemoryRunRepository(),
+      runnerClient: createCompletingRunnerClient(),
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: runRequest,
+    });
+    await waitForClockTick();
+    const secondCreateResponse = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: runRequest,
+    });
+    const secondRun = RunStateSchema.parse(secondCreateResponse.json());
+
+    const listResponse = await app.inject({
+      method: "GET",
+      url: "/runs?status=completed&limit=1",
+    });
+
+    expect(listResponse.statusCode).toBe(200);
+
+    const runs = RunStateSchema.array().parse(listResponse.json());
+
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.id).toBe(secondRun.id);
+    expect(runs[0]?.status).toBe("completed");
+  });
+
+  it("rejects invalid run list queries", async () => {
+    app = buildApp({
+      repository: createInMemoryRunRepository(),
+      runnerClient: createCompletingRunnerClient(),
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/runs?status=waiting&limit=0",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: "InvalidRunListQuery",
+    });
+  });
+
   it("reads a completed run result with sandbox execution output", async () => {
     app = buildApp({
       repository: createInMemoryRunRepository(),
@@ -246,4 +342,12 @@ function createCompletingRunnerClient(): RunnerClient {
       });
     },
   };
+}
+
+async function waitForClockTick(): Promise<void> {
+  const startedAt = Date.now();
+
+  while (Date.now() === startedAt) {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
 }

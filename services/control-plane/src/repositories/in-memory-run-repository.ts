@@ -15,6 +15,7 @@ import {
   createQueuedRun,
   createRunResultFromRunnerResult,
   type CreateRunResult,
+  type ListRunsOptions,
   type RunRepository,
 } from "./run-repository.js";
 
@@ -40,6 +41,14 @@ export class InMemoryRunRepository implements RunRepository {
   async getRun(id: string): Promise<RunState | null> {
     const run = this.runs.get(id);
     return run ? RunStateSchema.parse(run) : null;
+  }
+
+  async listRuns(options: ListRunsOptions): Promise<RunState[]> {
+    return [...this.runs.values()]
+      .filter((run) => !options.status || run.status === options.status)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, options.limit)
+      .map((run) => RunStateSchema.parse(run));
   }
 
   async getRunResult(runId: string): Promise<RunResult | null> {

@@ -57,13 +57,32 @@ curl -sS -X POST http://127.0.0.1:4100/runs \
   }'
 ```
 
-In Milestone 6, the control plane calls the runner synchronously. The runner
-starts a disposable Docker container, executes `node --version`, captures stdout,
-stderr, exit code, duration, cleanup status, and an artifact manifest, then
-returns the result.
+In the current walking skeleton, the control plane calls the runner
+synchronously. The runner starts a disposable Docker container, executes
+`node --version`, captures stdout, stderr, exit code, duration, cleanup status,
+and an artifact manifest, then returns the result.
 
 The run should move from `queued` to `running` to `completed`. Use the returned
-run `id` to inspect the lifecycle events:
+run `id` to read the final run state:
+
+```sh
+curl -sS http://127.0.0.1:4100/runs/<runId>
+```
+
+List recent runs from the control plane:
+
+```sh
+curl -sS http://127.0.0.1:4100/runs
+```
+
+The list endpoint returns the 50 newest runs by default. It also accepts
+`status` and `limit` query parameters:
+
+```sh
+curl -sS 'http://127.0.0.1:4100/runs?status=completed&limit=10'
+```
+
+Use the returned run `id` to inspect the lifecycle events:
 
 ```sh
 curl -sS http://127.0.0.1:4100/runs/<runId>/events
