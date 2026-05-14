@@ -98,6 +98,23 @@ curl -sS http://127.0.0.1:4100/runs/<runId>/result
 The result includes the sandbox container name, command, stdout, stderr, exit
 code, duration, timeout flag, cleanup result, and artifact manifest.
 
+## Failure behavior
+
+If the runner accepts a job and the sandbox command fails, times out, or the
+sandbox backend fails to start, the runner returns a failed job result. The
+control plane persists that result, marks the run `failed`, and exposes the
+failure through:
+
+```sh
+curl -sS http://127.0.0.1:4100/runs/<runId>
+curl -sS http://127.0.0.1:4100/runs/<runId>/events
+curl -sS http://127.0.0.1:4100/runs/<runId>/result
+```
+
+If the control plane cannot reach the runner at all, it marks the run `failed`
+with `RunnerDispatchFailed`. In that case there is no runner result to persist,
+so `/runs/<runId>/result` returns `RunResultNotFound`.
+
 The runner still exposes its in-memory job view while the process is running.
 Use the returned `runnerJobId` if you want to compare the control-plane result
 with the raw runner response:

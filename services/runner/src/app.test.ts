@@ -5,6 +5,7 @@ import {
   SandboxExecutionResultSchema,
   RunnerJobResultSchema,
   type RunnerJob,
+  type SandboxExecutionResult,
 } from "@kordo/contracts";
 
 import { buildApp } from "./app.js";
@@ -93,6 +94,111 @@ describe("runner job API", () => {
     expect(RunnerJobResultSchema.parse(readResponse.json())).toEqual(createdJob);
   });
 
+  it("returns a failed runner job for non-zero sandbox exits", async () => {
+    app = buildApp({
+      repository: createInMemoryRunRepositoryWithFakeSandbox({
+        exitCode: 2,
+        stderr: "command failed\n",
+      }),
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/jobs",
+      payload: runnerJob,
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const result = RunnerJobResultSchema.parse(response.json());
+
+    expect(result).toMatchObject({
+      id: runnerJob.id,
+      runId: runnerJob.runId,
+      status: "failed",
+      execution: {
+        exitCode: 2,
+        stderr: "command failed\n",
+        timedOut: false,
+      },
+      failureReason: {
+        code: "SandboxCommandFailed",
+        message: "Sandbox command exited with code 2.",
+      },
+    });
+  });
+
+  it("returns a failed runner job for sandbox timeouts", async () => {
+    app = buildApp({
+      repository: createInMemoryRunRepositoryWithFakeSandbox({
+        exitCode: 124,
+        durationMs: runnerJob.command.timeoutMs,
+        timedOut: true,
+      }),
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/jobs",
+      payload: runnerJob,
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const result = RunnerJobResultSchema.parse(response.json());
+
+    expect(result).toMatchObject({
+      status: "failed",
+      execution: {
+        exitCode: 124,
+        durationMs: runnerJob.command.timeoutMs,
+        timedOut: true,
+      },
+      failureReason: {
+        code: "SandboxCommandTimedOut",
+        message: `Sandbox command timed out after ${runnerJob.command.timeoutMs}ms.`,
+      },
+    });
+  });
+
+  it("returns a failed runner job when the sandbox backend throws", async () => {
+    app = buildApp({
+      repository: createInMemoryRunnerJobRepository({
+        async execute() {
+          throw new Error("docker is not available");
+        },
+      }),
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/jobs",
+      payload: runnerJob,
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const result = RunnerJobResultSchema.parse(response.json());
+
+    expect(result).toMatchObject({
+      status: "failed",
+      execution: {
+        command: runnerJob.command.argv,
+        exitCode: 127,
+        stdout: "",
+        stderr: "docker is not available",
+        timedOut: false,
+        cleanup: {
+          removed: false,
+        },
+      },
+      failureReason: {
+        code: "SandboxBackendFailed",
+        message: "docker is not available",
+      },
+    });
+  });
+
   it("rejects invalid runner jobs", async () => {
     app = buildApp({
       repository: createInMemoryRunRepositoryWithFakeSandbox(),
@@ -133,11 +239,15 @@ describe("runner job API", () => {
   });
 });
 
-function createInMemoryRunRepositoryWithFakeSandbox() {
-  return createInMemoryRunnerJobRepository(createFakeSandboxBackend());
+function createInMemoryRunRepositoryWithFakeSandbox(
+  executionOverrides: Partial<SandboxExecutionResult> = {},
+) {
+  return createInMemoryRunnerJobRepository(createFakeSandboxBackend(executionOverrides));
 }
 
-function createFakeSandboxBackend(): SandboxBackend {
+function createFakeSandboxBackend(
+  executionOverrides: Partial<SandboxExecutionResult> = {},
+): SandboxBackend {
   return {
     async execute(job) {
       const now = new Date().toISOString();
@@ -155,6 +265,7 @@ function createFakeSandboxBackend(): SandboxBackend {
         cleanup: {
           removed: true,
         },
+        ...executionOverrides,
       });
     },
   };

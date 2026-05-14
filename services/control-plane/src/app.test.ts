@@ -225,6 +225,109 @@ describe("control-plane run API", () => {
     });
   });
 
+  it("persists failed runner results and exposes the failed run result", async () => {
+    app = buildApp({
+      repository: createInMemoryRunRepository(),
+      runnerClient: createFailingRunnerClient(),
+    });
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: runRequest,
+    });
+
+    expect(createResponse.statusCode).toBe(201);
+
+    const run = RunStateSchema.parse(createResponse.json());
+
+    expect(run).toMatchObject({
+      status: "failed",
+      currentPhase: null,
+      failureReason: {
+        code: "SandboxCommandFailed",
+        message: "Sandbox command exited with code 2.",
+      },
+    });
+
+    const resultResponse = await app.inject({
+      method: "GET",
+      url: `/runs/${run.id}/result`,
+    });
+
+    expect(resultResponse.statusCode).toBe(200);
+
+    const result = RunResultSchema.parse(resultResponse.json());
+
+    expect(result).toMatchObject({
+      runId: run.id,
+      runnerJobId: run.runnerJobId,
+      status: "failed",
+      execution: {
+        command: ["node", "--version"],
+        exitCode: 2,
+        stderr: "command failed\n",
+        timedOut: false,
+      },
+      failureReason: {
+        code: "SandboxCommandFailed",
+      },
+    });
+
+    const eventsResponse = await app.inject({
+      method: "GET",
+      url: `/runs/${run.id}/events`,
+    });
+    const events = PhaseEventSchema.array().parse(eventsResponse.json());
+
+    expect(events.map((event) => event.status)).toEqual(["completed", "started", "failed"]);
+  });
+
+  it("records runner dispatch failures when the runner cannot be reached", async () => {
+    app = buildApp({
+      repository: createInMemoryRunRepository(),
+      runnerClient: createThrowingRunnerClient(new Error("connect ECONNREFUSED 127.0.0.1:4200")),
+    });
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: runRequest,
+    });
+
+    expect(createResponse.statusCode).toBe(502);
+
+    const run = RunStateSchema.parse(createResponse.json());
+
+    expect(run).toMatchObject({
+      status: "failed",
+      currentPhase: null,
+      failureReason: {
+        code: "RunnerDispatchFailed",
+        message: "connect ECONNREFUSED 127.0.0.1:4200",
+      },
+    });
+
+    const resultResponse = await app.inject({
+      method: "GET",
+      url: `/runs/${run.id}/result`,
+    });
+
+    expect(resultResponse.statusCode).toBe(404);
+    expect(resultResponse.json()).toEqual({
+      error: "RunResultNotFound",
+    });
+
+    const eventsResponse = await app.inject({
+      method: "GET",
+      url: `/runs/${run.id}/events`,
+    });
+    const events = PhaseEventSchema.array().parse(eventsResponse.json());
+
+    expect(events.map((event) => event.status)).toEqual(["completed", "started", "failed"]);
+    expect(events[2]?.message).toBe("Runner job failed before completion.");
+  });
+
   it("lists queued, running, and completed run events", async () => {
     app = buildApp({
       repository: createInMemoryRunRepository(),
@@ -340,6 +443,55 @@ function createCompletingRunnerClient(): RunnerClient {
         },
         summary: "Runner stub completed without sandbox execution.",
       });
+    },
+  };
+}
+
+function createFailingRunnerClient(): RunnerClient {
+  return {
+    async runJob(job: RunnerJob) {
+      const now = new Date().toISOString();
+
+      return RunnerJobResultSchema.parse({
+        id: job.id,
+        runId: job.runId,
+        status: "failed",
+        startedAt: now,
+        completedAt: now,
+        execution: {
+          containerName: `kordo-${job.id}`,
+          command: job.command.argv,
+          exitCode: 2,
+          stdout: "",
+          stderr: "command failed\n",
+          startedAt: now,
+          completedAt: now,
+          durationMs: 12,
+          timedOut: false,
+          cleanup: {
+            removed: true,
+          },
+        },
+        artifactManifest: {
+          runId: job.runId,
+          generatedAt: now,
+          artifacts: [],
+          summary: "Docker-local sandbox command failed.",
+        },
+        summary: "Docker-local sandbox command failed.",
+        failureReason: {
+          code: "SandboxCommandFailed",
+          message: "Sandbox command exited with code 2.",
+        },
+      });
+    },
+  };
+}
+
+function createThrowingRunnerClient(error: Error): RunnerClient {
+  return {
+    async runJob() {
+      throw error;
     },
   };
 }
