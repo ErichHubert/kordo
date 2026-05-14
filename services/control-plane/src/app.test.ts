@@ -12,6 +12,7 @@ import {
 } from "@kordo/contracts";
 
 import { buildApp } from "./app.js";
+import { createInMemoryArtifactStore } from "./artifacts/in-memory-artifact-store.js";
 import { createInMemoryRunRepository } from "./repositories/in-memory-run-repository.js";
 import type { RunRepository } from "./repositories/run-repository.js";
 import { createInProcessRunDispatcher, type RunDispatcher } from "./run-dispatcher.js";
@@ -94,6 +95,10 @@ describe("control-plane run API", () => {
       currentPhase: null,
       runnerJobId: runnerJob.id,
     });
+    expect(completedRun.artifacts.map((artifact) => artifact.name)).toEqual([
+      "stdout.log",
+      "stderr.log",
+    ]);
 
     const resultResponse = await app.inject({
       method: "GET",
@@ -110,7 +115,60 @@ describe("control-plane run API", () => {
         exitCode: 0,
         stdout: "v24.12.0\n",
       },
+      artifactManifest: {
+        artifacts: [
+          {
+            name: "stdout.log",
+          },
+          {
+            name: "stderr.log",
+          },
+        ],
+      },
     });
+  });
+
+  it("reads durable stdout and stderr artifacts for a completed run", async () => {
+    const testContext = createTestApp();
+    app = testContext.app;
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: runRequest,
+    });
+    const queuedRun = RunStateSchema.parse(createResponse.json());
+    await testContext.dispatcher.waitForIdle?.();
+
+    const resultResponse = await app.inject({
+      method: "GET",
+      url: `/runs/${queuedRun.id}/result`,
+    });
+    const result = RunResultSchema.parse(resultResponse.json());
+    const stdoutArtifact = result.artifactManifest.artifacts.find(
+      (artifact) => artifact.name === "stdout.log",
+    );
+    const stderrArtifact = result.artifactManifest.artifacts.find(
+      (artifact) => artifact.name === "stderr.log",
+    );
+
+    expect(stdoutArtifact).toBeDefined();
+    expect(stderrArtifact).toBeDefined();
+
+    const stdoutResponse = await app.inject({
+      method: "GET",
+      url: `/runs/${queuedRun.id}/artifacts/${stdoutArtifact?.id}`,
+    });
+    const stderrResponse = await app.inject({
+      method: "GET",
+      url: `/runs/${queuedRun.id}/artifacts/${stderrArtifact?.id}`,
+    });
+
+    expect(stdoutResponse.statusCode).toBe(200);
+    expect(stdoutResponse.headers["content-type"]).toBe("text/plain; charset=utf-8");
+    expect(stdoutResponse.body).toBe("v24.12.0\n");
+    expect(stderrResponse.statusCode).toBe(200);
+    expect(stderrResponse.body).toBe("");
   });
 
   it("reads a queued run before dispatch starts", async () => {
@@ -277,6 +335,16 @@ describe("control-plane run API", () => {
       failureReason: {
         code: "SandboxCommandFailed",
       },
+      artifactManifest: {
+        artifacts: [
+          {
+            name: "stdout.log",
+          },
+          {
+            name: "stderr.log",
+          },
+        ],
+      },
     });
 
     const eventsResponse = await app.inject({
@@ -379,8 +447,8 @@ describe("control-plane run API", () => {
       runId: createdRun.id,
       phase: "runner",
       status: "completed",
-      artifactIds: [],
     });
+    expect(events[2]?.artifactIds).toHaveLength(2);
   });
 
   it("rejects invalid run requests", async () => {
@@ -416,6 +484,29 @@ describe("control-plane run API", () => {
       error: "RunNotFound",
     });
   });
+
+  it("returns 404 for artifacts that do not belong to a run", async () => {
+    const testContext = createTestApp();
+    app = testContext.app;
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: runRequest,
+    });
+    const queuedRun = RunStateSchema.parse(createResponse.json());
+    await testContext.dispatcher.waitForIdle?.();
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/runs/${queuedRun.id}/artifacts/artifact_missing`,
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: "ArtifactNotFound",
+    });
+  });
 });
 
 interface TestAppContext {
@@ -428,15 +519,18 @@ function createTestApp(
   options: { dispatcher?: RunDispatcher; runnerClient?: RunnerClient } = {},
 ): TestAppContext {
   const repository = createInMemoryRunRepository();
+  const artifactStore = createInMemoryArtifactStore();
   const dispatcher =
     options.dispatcher ??
     createInProcessRunDispatcher({
+      artifactStore,
       repository,
       runnerClient: options.runnerClient ?? createCompletingRunnerClient(),
     });
 
   return {
     app: buildApp({
+      artifactStore,
       dispatcher,
       repository,
     }),

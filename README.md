@@ -15,7 +15,8 @@ The current walking skeleton accepts a manual run through the control plane,
 persists queued/running/completed lifecycle events in PostgreSQL, dispatches a
 runner job asynchronously, executes `node --version` in a disposable Docker-local
 sandbox, and persists the final execution result for inspection through the
-control-plane API.
+control-plane API. The control plane stores stdout and stderr as local artifacts
+and exposes them through run-scoped artifact URLs.
 
 ## Commands
 

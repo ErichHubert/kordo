@@ -7,6 +7,7 @@ import {
   type RunState,
 } from "@kordo/contracts";
 
+import type { ArtifactStore } from "./artifacts/artifact-store.js";
 import type { RunRepository } from "./repositories/run-repository.js";
 import { createRunnerJob } from "./runner-jobs.js";
 import { createInProcessRunDispatcher, type RunDispatcher } from "./run-dispatcher.js";
@@ -14,6 +15,7 @@ import { parseRunListQuery } from "./run-list-query.js";
 import type { RunnerClient } from "./runner-client.js";
 
 export interface BuildAppOptions {
+  artifactStore: ArtifactStore;
   dispatcher?: RunDispatcher;
   logger?: FastifyServerOptions["logger"];
   repository: RunRepository;
@@ -133,6 +135,37 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     return reply.send(result satisfies RunResult);
   });
 
+  app.get("/runs/:id/artifacts/:artifactId", async (request, reply) => {
+    const ids = parseArtifactRouteParams(request.params);
+
+    if (!ids) {
+      return reply.code(400).send({ error: "InvalidArtifactRequest" });
+    }
+
+    const run = await options.repository.getRun(ids.runId);
+
+    if (!run) {
+      return reply.code(404).send({ error: "RunNotFound" });
+    }
+
+    const artifact = run.artifacts.find((candidate) => candidate.id === ids.artifactId);
+
+    if (!artifact) {
+      return reply.code(404).send({ error: "ArtifactNotFound" });
+    }
+
+    const storedArtifact = await options.artifactStore.readArtifact(ids.runId, artifact);
+
+    if (!storedArtifact) {
+      return reply.code(404).send({ error: "ArtifactContentNotFound" });
+    }
+
+    return reply
+      .header("content-type", storedArtifact.contentType)
+      .header("x-kordo-artifact-id", storedArtifact.artifact.id)
+      .send(storedArtifact.content);
+  });
+
   return app;
 }
 
@@ -149,6 +182,7 @@ function createRunDispatcher(
   }
 
   return createInProcessRunDispatcher({
+    artifactStore: options.artifactStore,
     logger,
     repository: options.repository,
     runnerClient: options.runnerClient,
@@ -159,4 +193,22 @@ function parseRunId(params: unknown): string | null {
   const rawId = params && typeof params === "object" ? (params as { id?: unknown }).id : undefined;
   const parsed = NonEmptyStringSchema.safeParse(rawId);
   return parsed.success ? parsed.data : null;
+}
+
+function parseArtifactRouteParams(params: unknown): { artifactId: string; runId: string } | null {
+  const rawParams =
+    params && typeof params === "object"
+      ? (params as { artifactId?: unknown; id?: unknown })
+      : undefined;
+  const parsedRunId = NonEmptyStringSchema.safeParse(rawParams?.id);
+  const parsedArtifactId = NonEmptyStringSchema.safeParse(rawParams?.artifactId);
+
+  if (!parsedRunId.success || !parsedArtifactId.success) {
+    return null;
+  }
+
+  return {
+    artifactId: parsedArtifactId.data,
+    runId: parsedRunId.data,
+  };
 }

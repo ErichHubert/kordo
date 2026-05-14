@@ -1,6 +1,7 @@
 export const DEFAULT_DATABASE_URL = "postgres://kordo:kordo@localhost:5432/kordo";
 
 export interface ControlPlaneConfig {
+  artifactDir: string;
   databaseUrl: string;
   host: string;
   port: number;
@@ -9,6 +10,7 @@ export interface ControlPlaneConfig {
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneConfig {
   return {
+    artifactDir: env.KORDO_ARTIFACT_DIR ?? ".kordo/artifacts",
     databaseUrl: env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
     host: env.CONTROL_PLANE_HOST ?? "0.0.0.0",
     port: readPort(env.CONTROL_PLANE_PORT ?? "4100"),

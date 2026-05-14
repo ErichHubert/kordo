@@ -61,7 +61,9 @@ In the current walking skeleton, `POST /runs` accepts a run and returns the
 queued run immediately with HTTP `202`. An in-process dispatcher then starts a
 runner job in the background. The runner starts a disposable Docker container,
 executes `node --version`, captures stdout, stderr, exit code, duration, cleanup
-status, and an artifact manifest, then returns the result to the dispatcher.
+status, and an artifact manifest, then returns the result to the dispatcher. The
+control plane stores stdout and stderr as local artifacts before it marks the run
+complete.
 
 The run should move from `queued` to `running` to `completed`. Use the returned
 run `id` to poll the run state:
@@ -98,6 +100,27 @@ curl -sS http://127.0.0.1:4100/runs/<runId>/result
 
 The result includes the sandbox container name, command, stdout, stderr, exit
 code, duration, timeout flag, cleanup result, and artifact manifest.
+
+The artifact manifest includes `stdout.log` and `stderr.log` refs. Read an
+artifact through the control plane:
+
+```sh
+curl -sS http://127.0.0.1:4100/runs/<runId>/artifacts/<artifactId>
+```
+
+By default local artifact content is stored under `.kordo/artifacts` relative to
+the control-plane process working directory. With the `pnpm --filter`
+development command above, that resolves to:
+
+```text
+services/control-plane/.kordo/artifacts
+```
+
+Override that location with:
+
+```sh
+KORDO_ARTIFACT_DIR=/tmp/kordo-artifacts corepack pnpm --filter @kordo/control-plane dev
+```
 
 ## Failure behavior
 

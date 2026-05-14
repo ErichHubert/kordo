@@ -1,5 +1,7 @@
 import type { RunnerJob } from "@kordo/contracts";
 
+import type { ArtifactStore } from "./artifacts/artifact-store.js";
+import { materializeRunnerResultArtifacts } from "./artifacts/result-artifacts.js";
 import type { RunRepository } from "./repositories/run-repository.js";
 import type { RunnerClient } from "./runner-client.js";
 
@@ -14,6 +16,7 @@ export interface RunDispatcherLogger {
 }
 
 export interface InProcessRunDispatcherOptions {
+  artifactStore: ArtifactStore;
   logger?: RunDispatcherLogger;
   repository: RunRepository;
   runnerClient: RunnerClient;
@@ -58,7 +61,11 @@ export class InProcessRunDispatcher implements RunDispatcher {
     try {
       await this.options.repository.markRunRunning(job.runId, job.id);
       const runnerResult = await this.options.runnerClient.runJob(job);
-      await this.options.repository.finishRunFromRunnerResult(runnerResult);
+      const runnerResultWithArtifacts = await materializeRunnerResultArtifacts(
+        runnerResult,
+        this.options.artifactStore,
+      );
+      await this.options.repository.finishRunFromRunnerResult(runnerResultWithArtifacts);
     } catch (error) {
       await this.recordDispatchFailure(job, error);
     }

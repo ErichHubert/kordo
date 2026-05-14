@@ -9,6 +9,7 @@ import {
   type RunnerJobResult,
 } from "@kordo/contracts";
 
+import { createInMemoryArtifactStore } from "./artifacts/in-memory-artifact-store.js";
 import { createInMemoryRunRepository } from "./repositories/in-memory-run-repository.js";
 import { createRunnerJob } from "./runner-jobs.js";
 import { createInProcessRunDispatcher, type RunDispatcherLogger } from "./run-dispatcher.js";
@@ -30,6 +31,7 @@ describe("InProcessRunDispatcher", () => {
     const { run } = await repository.createRun(runRequest);
     const job = createRunnerJob(run, runRequest);
     const dispatcher = createInProcessRunDispatcher({
+      artifactStore: createInMemoryArtifactStore(),
       repository,
       runnerClient: createCompletingRunnerClient(),
     });
@@ -54,7 +56,21 @@ describe("InProcessRunDispatcher", () => {
       execution: {
         exitCode: 0,
       },
+      artifactManifest: {
+        artifacts: [
+          {
+            name: "stdout.log",
+          },
+          {
+            name: "stderr.log",
+          },
+        ],
+      },
     });
+    expect(completedRun.artifacts.map((artifact) => artifact.name)).toEqual([
+      "stdout.log",
+      "stderr.log",
+    ]);
     expect(events.map((event) => event.status)).toEqual(["completed", "started", "completed"]);
   });
 
@@ -65,6 +81,7 @@ describe("InProcessRunDispatcher", () => {
     const { run } = await repository.createRun(runRequest);
     const job = createRunnerJob(run, runRequest);
     const dispatcher = createInProcessRunDispatcher({
+      artifactStore: createInMemoryArtifactStore(),
       logger,
       repository,
       runnerClient: createThrowingRunnerClient(dispatchError),
@@ -108,6 +125,7 @@ describe("InProcessRunDispatcher", () => {
     const { run } = await repository.createRun(runRequest);
     const job = createRunnerJob(run, runRequest);
     const dispatcher = createInProcessRunDispatcher({
+      artifactStore: createInMemoryArtifactStore(),
       repository,
       runnerClient: deferredRunner.client,
     });
