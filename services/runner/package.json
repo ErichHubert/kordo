@@ -1,0 +1,16 @@
+{
+  "name": "@kordo/runner",
+  "version": "0.1.0",
+  "description": "Semi-trusted Kordo runner service.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@kordo/contracts": "workspace:*"
+  }
+}
