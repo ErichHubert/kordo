@@ -35,9 +35,11 @@ export class InProcessRunDispatcher implements RunDispatcher {
     this.inFlight.add(task);
     task
       .finally(() => this.inFlight.delete(task))
-      .catch(() => {
-        // dispatchInBackground catches operational failures. This catch prevents
-        // an unexpected rejection from escaping the background task.
+      .catch((error: unknown) => {
+        this.options.logger?.error(
+          createLogPayload(job, error),
+          "Run dispatch task escaped with an unexpected rejection",
+        );
       });
   }
 
@@ -53,25 +55,55 @@ export class InProcessRunDispatcher implements RunDispatcher {
   }
 
   private async dispatchInBackground(job: RunnerJob): Promise<void> {
-    await this.options.repository.markRunRunning(job.runId, job.id);
-
     try {
+      await this.options.repository.markRunRunning(job.runId, job.id);
       const runnerResult = await this.options.runnerClient.runJob(job);
       await this.options.repository.finishRunFromRunnerResult(runnerResult);
     } catch (error) {
-      this.options.logger?.error({ error, runId: job.runId }, "Runner job failed");
+      await this.recordDispatchFailure(job, error);
+    }
+  }
 
+  private async recordDispatchFailure(job: RunnerJob, error: unknown): Promise<void> {
+    const failureReason = {
+      code: "RunnerDispatchFailed",
+      message: error instanceof Error ? error.message : "Runner dispatch failed.",
+    };
+
+    this.options.logger?.error(
+      {
+        ...createLogPayload(job, error),
+        failureReason,
+      },
+      "Runner job failed before completion",
+    );
+
+    try {
       await this.options.repository.failRun(
         job.runId,
         job.id,
-        {
-          code: "RunnerDispatchFailed",
-          message: error instanceof Error ? error.message : "Runner dispatch failed.",
-        },
+        failureReason,
         "Runner job failed before completion.",
+      );
+    } catch (persistError) {
+      this.options.logger?.error(
+        {
+          ...createLogPayload(job, persistError),
+          originalError: error,
+        },
+        "Runner dispatch failure could not be persisted",
       );
     }
   }
+}
+
+function createLogPayload(job: RunnerJob, error: unknown): Record<string, unknown> {
+  return {
+    error,
+    runId: job.runId,
+    runnerJobId: job.id,
+    workflowId: job.workflowId,
+  };
 }
 
 export function createInProcessRunDispatcher(
