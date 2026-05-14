@@ -20,6 +20,8 @@ export const RunStatusSchema = z.enum(["queued", "running", "completed", "failed
 
 export const PhaseStatusSchema = z.enum(["started", "completed", "failed"]);
 
+export const RunnerJobStatusSchema = z.enum(["completed", "failed"]);
+
 export const SandboxBackendSchema = z.enum(["docker-local", "microvm"]);
 
 export const RunInputSourceSchema = z.enum(["manual", "github", "scheduled"]);
@@ -155,9 +157,23 @@ export const ArtifactManifestSchema = z
   })
   .strict();
 
+export const RunnerJobResultSchema = z
+  .object({
+    id: RunnerJobIdSchema,
+    runId: RunIdSchema,
+    status: RunnerJobStatusSchema,
+    startedAt: TimestampSchema,
+    completedAt: TimestampSchema,
+    artifactManifest: ArtifactManifestSchema,
+    summary: z.string().optional(),
+    failureReason: FailureReasonSchema.optional(),
+  })
+  .strict();
+
 export type Timestamp = z.infer<typeof TimestampSchema>;
 export type RunStatus = z.infer<typeof RunStatusSchema>;
 export type PhaseStatus = z.infer<typeof PhaseStatusSchema>;
+export type RunnerJobStatus = z.infer<typeof RunnerJobStatusSchema>;
 export type SandboxBackend = z.infer<typeof SandboxBackendSchema>;
 export type RunInputSource = z.infer<typeof RunInputSourceSchema>;
 export type ArtifactKind = z.infer<typeof ArtifactKindSchema>;
@@ -173,3 +189,4 @@ export type EnvironmentPolicy = z.infer<typeof EnvironmentPolicySchema>;
 export type RunnerJob = z.infer<typeof RunnerJobSchema>;
 export type PhaseEvent = z.infer<typeof PhaseEventSchema>;
 export type ArtifactManifest = z.infer<typeof ArtifactManifestSchema>;
+export type RunnerJobResult = z.infer<typeof RunnerJobResultSchema>;

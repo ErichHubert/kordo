@@ -4,6 +4,7 @@ export interface ControlPlaneConfig {
   databaseUrl: string;
   host: string;
   port: number;
+  runnerBaseUrl: string;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneConfig {
@@ -11,6 +12,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     databaseUrl: env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
     host: env.CONTROL_PLANE_HOST ?? "0.0.0.0",
     port: readPort(env.CONTROL_PLANE_PORT ?? "4100"),
+    runnerBaseUrl: env.RUNNER_BASE_URL ?? "http://127.0.0.1:4200",
   };
 }
 

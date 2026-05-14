@@ -1,12 +1,19 @@
 import {
   PhaseEventSchema,
   RunStateSchema,
+  type FailureReason,
   type PhaseEvent,
   type RunRequest,
   type RunState,
+  type RunnerJobResult,
 } from "@kordo/contracts";
 
-import { createQueuedRun, type CreateRunResult, type RunRepository } from "./run-repository.js";
+import {
+  createPhaseEvent,
+  createQueuedRun,
+  type CreateRunResult,
+  type RunRepository,
+} from "./run-repository.js";
 
 export class InMemoryRunRepository implements RunRepository {
   private readonly runs = new Map<string, RunState>();
@@ -32,6 +39,91 @@ export class InMemoryRunRepository implements RunRepository {
 
   async listRunEvents(runId: string): Promise<PhaseEvent[]> {
     return (this.events.get(runId) ?? []).map((event) => PhaseEventSchema.parse(event));
+  }
+
+  async markRunRunning(runId: string, runnerJobId: string): Promise<RunState> {
+    const existingRun = this.requireRun(runId);
+    const now = new Date().toISOString();
+    const nextRun = RunStateSchema.parse({
+      ...existingRun,
+      status: "running",
+      currentPhase: "runner",
+      updatedAt: now,
+      runnerJobId,
+    });
+
+    this.runs.set(runId, nextRun);
+    this.appendEvent(
+      createPhaseEvent(runId, "runner", "started", "Runner job started.", [], new Date(now)),
+    );
+
+    return nextRun;
+  }
+
+  async finishRunFromRunnerResult(result: RunnerJobResult): Promise<RunState> {
+    const existingRun = this.requireRun(result.runId);
+    const nextRun = RunStateSchema.parse({
+      ...existingRun,
+      status: result.status,
+      currentPhase: null,
+      updatedAt: result.completedAt,
+      runnerJobId: result.id,
+      artifacts: result.artifactManifest.artifacts,
+      ...(result.failureReason ? { failureReason: result.failureReason } : {}),
+    });
+
+    this.runs.set(result.runId, nextRun);
+    this.appendEvent(
+      createPhaseEvent(
+        result.runId,
+        "runner",
+        result.status,
+        result.summary ?? "Runner job finished.",
+        result.artifactManifest.artifacts.map((artifact) => artifact.id),
+        new Date(result.completedAt),
+      ),
+    );
+
+    return nextRun;
+  }
+
+  async failRun(
+    runId: string,
+    runnerJobId: string,
+    failureReason: FailureReason,
+    message: string,
+  ): Promise<RunState> {
+    const existingRun = this.requireRun(runId);
+    const now = new Date().toISOString();
+    const nextRun = RunStateSchema.parse({
+      ...existingRun,
+      status: "failed",
+      currentPhase: null,
+      updatedAt: now,
+      runnerJobId,
+      failureReason,
+    });
+
+    this.runs.set(runId, nextRun);
+    this.appendEvent(createPhaseEvent(runId, "runner", "failed", message, [], new Date(now)));
+
+    return nextRun;
+  }
+
+  private requireRun(id: string): RunState {
+    const run = this.runs.get(id);
+
+    if (!run) {
+      throw new Error(`Run not found: ${id}`);
+    }
+
+    return run;
+  }
+
+  private appendEvent(event: PhaseEvent): void {
+    const events = this.events.get(event.runId) ?? [];
+    events.push(PhaseEventSchema.parse(event));
+    this.events.set(event.runId, events);
   }
 }
 

@@ -6,6 +6,7 @@ import {
   PhaseEventSchema,
   RunRequestSchema,
   RunStateSchema,
+  RunnerJobResultSchema,
   RunnerJobSchema,
   packageName,
   type ArtifactManifest,
@@ -13,6 +14,7 @@ import {
   type PhaseEvent,
   type RunRequest,
   type RunState,
+  type RunnerJobResult,
   type RunnerJob,
 } from "./index.js";
 
@@ -96,6 +98,16 @@ const artifactManifest: ArtifactManifest = {
   summary: "Captured stdout from the sandbox command.",
 };
 
+const runnerJobResult: RunnerJobResult = {
+  id: runnerJob.id,
+  runId: runnerJob.runId,
+  status: "completed",
+  startedAt: timestamp,
+  completedAt: timestamp,
+  artifactManifest,
+  summary: "Runner stub completed.",
+};
+
 describe("@kordo/contracts", () => {
   it("exports the package name", () => {
     expect(packageName).toBe("@kordo/contracts");
@@ -148,6 +160,16 @@ describe("@kordo/contracts", () => {
 
   it("rejects an ArtifactRef with an invalid checksum", () => {
     expect(ArtifactRefSchema.safeParse({ ...artifactRef, sha256: "not-a-checksum" }).success).toBe(
+      false,
+    );
+  });
+
+  it("accepts a valid RunnerJobResult", () => {
+    expect(RunnerJobResultSchema.parse(runnerJobResult)).toEqual(runnerJobResult);
+  });
+
+  it("rejects a RunnerJobResult with an unsupported status", () => {
+    expect(RunnerJobResultSchema.safeParse({ ...runnerJobResult, status: "running" }).success).toBe(
       false,
     );
   });

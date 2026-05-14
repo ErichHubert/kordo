@@ -1,10 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { PhaseEventSchema, RunStateSchema, type RunRequest } from "@kordo/contracts";
+import {
+  PhaseEventSchema,
+  RunnerJobResultSchema,
+  RunStateSchema,
+  type RunRequest,
+  type RunnerJob,
+} from "@kordo/contracts";
 
 import { buildApp } from "./app.js";
 import { createInMemoryRunRepository } from "./repositories/in-memory-run-repository.js";
+import type { RunnerClient } from "./runner-client.js";
 
 const runRequest: RunRequest = {
   workflowId: "artifexarena.issue.fix",
@@ -31,9 +38,10 @@ describe("control-plane run API", () => {
     app = null;
   });
 
-  it("creates a queued run", async () => {
+  it("creates and completes a run through the runner client", async () => {
     app = buildApp({
       repository: createInMemoryRunRepository(),
+      runnerClient: createCompletingRunnerClient(),
     });
 
     const response = await app.inject({
@@ -48,15 +56,16 @@ describe("control-plane run API", () => {
 
     expect(run.id).toMatch(/^run_/);
     expect(run.workflowId).toBe(runRequest.workflowId);
-    expect(run.status).toBe("queued");
-    expect(run.currentPhase).toBe("queued");
-    expect(run.runnerJobId).toBeNull();
+    expect(run.status).toBe("completed");
+    expect(run.currentPhase).toBeNull();
+    expect(run.runnerJobId).toMatch(/^job_/);
     expect(run.artifacts).toEqual([]);
   });
 
   it("reads a created run", async () => {
     app = buildApp({
       repository: createInMemoryRunRepository(),
+      runnerClient: createCompletingRunnerClient(),
     });
 
     const createResponse = await app.inject({
@@ -75,9 +84,10 @@ describe("control-plane run API", () => {
     expect(RunStateSchema.parse(readResponse.json())).toEqual(createdRun);
   });
 
-  it("lists queued run events", async () => {
+  it("lists queued, running, and completed run events", async () => {
     app = buildApp({
       repository: createInMemoryRunRepository(),
+      runnerClient: createCompletingRunnerClient(),
     });
 
     const createResponse = await app.inject({
@@ -96,10 +106,22 @@ describe("control-plane run API", () => {
 
     const events = PhaseEventSchema.array().parse(eventsResponse.json());
 
-    expect(events).toHaveLength(1);
+    expect(events).toHaveLength(3);
     expect(events[0]).toMatchObject({
       runId: createdRun.id,
       phase: "queued",
+      status: "completed",
+      artifactIds: [],
+    });
+    expect(events[1]).toMatchObject({
+      runId: createdRun.id,
+      phase: "runner",
+      status: "started",
+      artifactIds: [],
+    });
+    expect(events[2]).toMatchObject({
+      runId: createdRun.id,
+      phase: "runner",
       status: "completed",
       artifactIds: [],
     });
@@ -108,6 +130,7 @@ describe("control-plane run API", () => {
   it("rejects invalid run requests", async () => {
     app = buildApp({
       repository: createInMemoryRunRepository(),
+      runnerClient: createCompletingRunnerClient(),
     });
 
     const response = await app.inject({
@@ -128,6 +151,7 @@ describe("control-plane run API", () => {
   it("returns 404 for missing runs", async () => {
     app = buildApp({
       repository: createInMemoryRunRepository(),
+      runnerClient: createCompletingRunnerClient(),
     });
 
     const response = await app.inject({
@@ -141,3 +165,26 @@ describe("control-plane run API", () => {
     });
   });
 });
+
+function createCompletingRunnerClient(): RunnerClient {
+  return {
+    async runJob(job: RunnerJob) {
+      const now = new Date().toISOString();
+
+      return RunnerJobResultSchema.parse({
+        id: job.id,
+        runId: job.runId,
+        status: "completed",
+        startedAt: now,
+        completedAt: now,
+        artifactManifest: {
+          runId: job.runId,
+          generatedAt: now,
+          artifacts: [],
+          summary: "Runner stub completed without sandbox execution.",
+        },
+        summary: "Runner stub completed without sandbox execution.",
+      });
+    },
+  };
+}

@@ -3,10 +3,13 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastif
 import { NonEmptyStringSchema, RunRequestSchema, type RunState } from "@kordo/contracts";
 
 import type { RunRepository } from "./repositories/run-repository.js";
+import type { RunnerClient } from "./runner-client.js";
+import { createRunnerJob } from "./runner-jobs.js";
 
 export interface BuildAppOptions {
   logger?: FastifyServerOptions["logger"];
   repository: RunRepository;
+  runnerClient: RunnerClient;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
@@ -29,7 +32,29 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     }
 
     const result = await options.repository.createRun(parsed.data);
-    return reply.code(201).send(result.run);
+    const runnerJob = createRunnerJob(result.run, parsed.data);
+
+    await options.repository.markRunRunning(result.run.id, runnerJob.id);
+
+    try {
+      const runnerResult = await options.runnerClient.runJob(runnerJob);
+      const finishedRun = await options.repository.finishRunFromRunnerResult(runnerResult);
+      return reply.code(201).send(finishedRun);
+    } catch (error) {
+      request.log.error({ error, runId: result.run.id }, "Runner job failed");
+
+      const failedRun = await options.repository.failRun(
+        result.run.id,
+        runnerJob.id,
+        {
+          code: "RunnerDispatchFailed",
+          message: error instanceof Error ? error.message : "Runner dispatch failed.",
+        },
+        "Runner job failed before completion.",
+      );
+
+      return reply.code(502).send(failedRun);
+    }
   });
 
   app.get("/runs/:id", async (request, reply) => {

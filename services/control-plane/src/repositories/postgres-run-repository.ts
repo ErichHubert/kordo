@@ -1,17 +1,24 @@
-import { eq, asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 
 import {
   PhaseEventSchema,
   RunStateSchema,
+  type FailureReason,
   type PhaseEvent,
   type RunRequest,
   type RunState,
+  type RunnerJobResult,
 } from "@kordo/contracts";
 
 import * as schema from "../db/schema.js";
-import { createQueuedRun, type CreateRunResult, type RunRepository } from "./run-repository.js";
+import {
+  createPhaseEvent,
+  createQueuedRun,
+  type CreateRunResult,
+  type RunRepository,
+} from "./run-repository.js";
 
 type Database = NodePgDatabase<typeof schema>;
 
@@ -77,8 +84,119 @@ export class PostgresRunRepository implements RunRepository {
     return rows.map(mapRunEventRow);
   }
 
+  async markRunRunning(runId: string, runnerJobId: string): Promise<RunState> {
+    const now = new Date();
+    const event = createPhaseEvent(runId, "runner", "started", "Runner job started.", [], now);
+
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(schema.runs)
+        .set({
+          status: "running",
+          currentPhase: "runner",
+          updatedAt: now,
+          runnerJobId,
+        })
+        .where(eq(schema.runs.id, runId));
+
+      await tx.insert(schema.runEvents).values({
+        id: event.id,
+        runId: event.runId,
+        phase: event.phase,
+        status: event.status,
+        message: event.message,
+        artifactIds: event.artifactIds,
+        occurredAt: new Date(event.occurredAt),
+      });
+    });
+
+    return this.requireRun(runId);
+  }
+
+  async finishRunFromRunnerResult(result: RunnerJobResult): Promise<RunState> {
+    const event = createPhaseEvent(
+      result.runId,
+      "runner",
+      result.status,
+      result.summary ?? "Runner job finished.",
+      result.artifactManifest.artifacts.map((artifact) => artifact.id),
+      new Date(result.completedAt),
+    );
+
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(schema.runs)
+        .set({
+          status: result.status,
+          currentPhase: null,
+          updatedAt: new Date(result.completedAt),
+          runnerJobId: result.id,
+          artifacts: result.artifactManifest.artifacts,
+          failureReason: result.failureReason,
+        })
+        .where(eq(schema.runs.id, result.runId));
+
+      await tx.insert(schema.runEvents).values({
+        id: event.id,
+        runId: event.runId,
+        phase: event.phase,
+        status: event.status,
+        message: event.message,
+        artifactIds: event.artifactIds,
+        occurredAt: new Date(event.occurredAt),
+      });
+    });
+
+    return this.requireRun(result.runId);
+  }
+
+  async failRun(
+    runId: string,
+    runnerJobId: string,
+    failureReason: FailureReason,
+    message: string,
+  ): Promise<RunState> {
+    const now = new Date();
+    const event = createPhaseEvent(runId, "runner", "failed", message, [], now);
+
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(schema.runs)
+        .set({
+          status: "failed",
+          currentPhase: null,
+          updatedAt: now,
+          runnerJobId,
+          failureReason,
+        })
+        .where(eq(schema.runs.id, runId));
+
+      await tx.insert(schema.runEvents).values({
+        id: event.id,
+        runId: event.runId,
+        phase: event.phase,
+        status: event.status,
+        message: event.message,
+        artifactIds: event.artifactIds,
+        occurredAt: new Date(event.occurredAt),
+      });
+    });
+
+    return this.requireRun(runId);
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
+  }
+
+  private async requireRun(id: string): Promise<RunState> {
+    const run = await this.getRun(id);
+
+    if (!run) {
+      throw new Error(`Run not found: ${id}`);
+    }
+
+    return run;
   }
 }
 
