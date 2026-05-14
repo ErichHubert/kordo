@@ -24,4 +24,18 @@ corepack pnpm build
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm lint
+corepack pnpm format:check
+corepack pnpm verify
 ```
+
+## CI
+
+Pull requests and pushes to `main` run the same verification command in GitHub
+Actions:
+
+```sh
+corepack pnpm verify
+```
+
+See [docs/maintenance.md](/Users/erich/Dev/github/public/kordo/docs/maintenance.md) for the maintenance
+standard used between functional milestones.
