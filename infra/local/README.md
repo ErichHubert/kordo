@@ -57,13 +57,14 @@ curl -sS -X POST http://127.0.0.1:4100/runs \
   }'
 ```
 
-In the current walking skeleton, the control plane calls the runner
-synchronously. The runner starts a disposable Docker container, executes
-`node --version`, captures stdout, stderr, exit code, duration, cleanup status,
-and an artifact manifest, then returns the result.
+In the current walking skeleton, `POST /runs` accepts a run and returns the
+queued run immediately with HTTP `202`. An in-process dispatcher then starts a
+runner job in the background. The runner starts a disposable Docker container,
+executes `node --version`, captures stdout, stderr, exit code, duration, cleanup
+status, and an artifact manifest, then returns the result to the dispatcher.
 
 The run should move from `queued` to `running` to `completed`. Use the returned
-run `id` to read the final run state:
+run `id` to poll the run state:
 
 ```sh
 curl -sS http://127.0.0.1:4100/runs/<runId>
@@ -112,12 +113,13 @@ curl -sS http://127.0.0.1:4100/runs/<runId>/result
 ```
 
 If the control plane cannot reach the runner at all, it marks the run `failed`
-with `RunnerDispatchFailed`. In that case there is no runner result to persist,
-so `/runs/<runId>/result` returns `RunResultNotFound`.
+with `RunnerDispatchFailed` after the initial `POST /runs` response has already
+returned. In that case there is no runner result to persist, so
+`/runs/<runId>/result` returns `RunResultNotFound`.
 
 The runner still exposes its in-memory job view while the process is running.
-Use the returned `runnerJobId` if you want to compare the control-plane result
-with the raw runner response:
+After a run moves to `running`, use its `runnerJobId` if you want to compare the
+control-plane result with the raw runner response:
 
 ```sh
 curl -sS http://127.0.0.1:4200/jobs/<runnerJobId>

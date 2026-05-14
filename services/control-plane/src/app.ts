@@ -8,22 +8,26 @@ import {
 } from "@kordo/contracts";
 
 import type { RunRepository } from "./repositories/run-repository.js";
-import type { RunnerClient } from "./runner-client.js";
 import { createRunnerJob } from "./runner-jobs.js";
+import { createInProcessRunDispatcher, type RunDispatcher } from "./run-dispatcher.js";
 import { parseRunListQuery } from "./run-list-query.js";
+import type { RunnerClient } from "./runner-client.js";
 
 export interface BuildAppOptions {
+  dispatcher?: RunDispatcher;
   logger?: FastifyServerOptions["logger"];
   repository: RunRepository;
-  runnerClient: RunnerClient;
+  runnerClient?: RunnerClient;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
   const app = Fastify({
     logger: options.logger ?? false,
   });
+  const dispatcher = createRunDispatcher(options, app.log);
 
   app.addHook("onClose", async () => {
+    await dispatcher.close?.();
     await options.repository.close?.();
   });
 
@@ -40,14 +44,11 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     const result = await options.repository.createRun(parsed.data);
     const runnerJob = createRunnerJob(result.run, parsed.data);
 
-    await options.repository.markRunRunning(result.run.id, runnerJob.id);
-
     try {
-      const runnerResult = await options.runnerClient.runJob(runnerJob);
-      const finishedRun = await options.repository.finishRunFromRunnerResult(runnerResult);
-      return reply.code(201).send(finishedRun);
+      dispatcher.dispatch(runnerJob);
+      return reply.code(202).send(result.run);
     } catch (error) {
-      request.log.error({ error, runId: result.run.id }, "Runner job failed");
+      request.log.error({ error, runId: result.run.id }, "Run dispatch scheduling failed");
 
       const failedRun = await options.repository.failRun(
         result.run.id,
@@ -56,10 +57,10 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
           code: "RunnerDispatchFailed",
           message: error instanceof Error ? error.message : "Runner dispatch failed.",
         },
-        "Runner job failed before completion.",
+        "Run dispatch scheduling failed.",
       );
 
-      return reply.code(502).send(failedRun);
+      return reply.code(500).send(failedRun);
     }
   });
 
@@ -133,6 +134,25 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   });
 
   return app;
+}
+
+function createRunDispatcher(
+  options: BuildAppOptions,
+  logger: FastifyInstance["log"],
+): RunDispatcher {
+  if (options.dispatcher) {
+    return options.dispatcher;
+  }
+
+  if (!options.runnerClient) {
+    throw new Error("runnerClient is required when dispatcher is not provided.");
+  }
+
+  return createInProcessRunDispatcher({
+    logger,
+    repository: options.repository,
+    runnerClient: options.runnerClient,
+  });
 }
 
 function parseRunId(params: unknown): string | null {

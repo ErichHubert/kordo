@@ -10,10 +10,11 @@ export const serviceName = "@kordo/control-plane";
 export async function start(): Promise<void> {
   const config = readConfig();
   const repository = createPostgresRunRepository(config.databaseUrl);
+  const runnerClient = new HttpRunnerClient(config.runnerBaseUrl);
   const app = buildApp({
     logger: true,
     repository,
-    runnerClient: new HttpRunnerClient(config.runnerBaseUrl),
+    runnerClient,
   });
 
   await app.listen({

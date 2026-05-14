@@ -13,8 +13,9 @@ tooling. It does not implement the run lifecycle yet.
 
 The current walking skeleton accepts a manual run through the control plane,
 persists queued/running/completed lifecycle events in PostgreSQL, dispatches a
-runner job, executes `node --version` in a disposable Docker-local sandbox, and
-persists the final execution result for inspection through the control-plane API.
+runner job asynchronously, executes `node --version` in a disposable Docker-local
+sandbox, and persists the final execution result for inspection through the
+control-plane API.
 
 ## Commands
 
