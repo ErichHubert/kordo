@@ -414,6 +414,41 @@ describe("control-plane run API", () => {
     expect(events[2]?.message).toBe("Runner job failed before completion.");
   });
 
+  it("marks a run failed when dispatch scheduling fails", async () => {
+    const testContext = createTestApp({
+      dispatcher: createRejectingRunDispatcher(new Error("Inngest event send failed")),
+    });
+    app = testContext.app;
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: runRequest,
+    });
+
+    expect(createResponse.statusCode).toBe(500);
+
+    const failedRun = RunStateSchema.parse(createResponse.json());
+
+    expect(failedRun).toMatchObject({
+      status: "failed",
+      currentPhase: null,
+      failureReason: {
+        code: "RunnerDispatchFailed",
+        message: "Inngest event send failed",
+      },
+    });
+
+    const eventsResponse = await app.inject({
+      method: "GET",
+      url: `/runs/${failedRun.id}/events`,
+    });
+    const events = PhaseEventSchema.array().parse(eventsResponse.json());
+
+    expect(events.map((event) => event.status)).toEqual(["completed", "failed"]);
+    expect(events[1]?.message).toBe("Run dispatch scheduling failed.");
+  });
+
   it("lists queued, running, and completed run events", async () => {
     const testContext = createTestApp();
     app = testContext.app;
@@ -621,6 +656,14 @@ function createTestApp(
 function createNoopRunDispatcher(): RunDispatcher {
   return {
     dispatch() {},
+  };
+}
+
+function createRejectingRunDispatcher(error: Error): RunDispatcher {
+  return {
+    async dispatch() {
+      throw error;
+    },
   };
 }
 

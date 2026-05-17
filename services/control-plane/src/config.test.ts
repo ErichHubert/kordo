@@ -5,6 +5,9 @@ import {
   DEFAULT_ARTIFACT_RETENTION_DAYS,
   DEFAULT_ALLOWED_GATEWAY_ROUTES,
   DEFAULT_ALLOWED_SANDBOX_PROFILES,
+  DEFAULT_INNGEST_APP_ID,
+  DEFAULT_INNGEST_SERVE_PATH,
+  DEFAULT_RUN_DISPATCHER_KIND,
   readConfig,
 } from "./config.js";
 
@@ -18,20 +21,34 @@ describe("readConfig", () => {
       maxRunArtifactBytes: 52_428_800,
     });
     expect(config.artifactRetentionDays).toBe(DEFAULT_ARTIFACT_RETENTION_DAYS);
+    expect(config.inngest).toEqual({
+      appId: DEFAULT_INNGEST_APP_ID,
+      dev: true,
+      servePath: DEFAULT_INNGEST_SERVE_PATH,
+    });
+    expect(config.runDispatcherKind).toBe(DEFAULT_RUN_DISPATCHER_KIND);
     expect(config.runPolicy).toEqual({
       allowedGatewayRoutes: DEFAULT_ALLOWED_GATEWAY_ROUTES,
       allowedSandboxProfiles: DEFAULT_ALLOWED_SANDBOX_PROFILES,
     });
   });
 
-  it("reads artifact retention, limits, and run policy from the environment", () => {
+  it("reads artifact retention, limits, Inngest, and run policy from the environment", () => {
     const config = readConfig({
       KORDO_ARTIFACT_CLEANUP_BATCH_SIZE: "25",
       KORDO_ARTIFACT_RETENTION_DAYS: "14",
       KORDO_ALLOWED_GATEWAY_ROUTES: "github.issues.write, stripe.customers.create",
       KORDO_ALLOWED_SANDBOX_PROFILES: "docker-local-default, microvm-default",
+      KORDO_INNGEST_APP_ID: "kordo-test",
+      KORDO_INNGEST_BASE_URL: "http://127.0.0.1:8288",
+      KORDO_INNGEST_DEV: "false",
+      KORDO_INNGEST_EVENT_KEY: "event-key",
+      KORDO_INNGEST_SERVE_ORIGIN: "http://127.0.0.1:4100",
+      KORDO_INNGEST_SERVE_PATH: "/custom/inngest",
+      KORDO_INNGEST_SIGNING_KEY: "signing-key",
       KORDO_MAX_ARTIFACT_BYTES: "1000",
       KORDO_MAX_RUN_ARTIFACT_BYTES: "5000",
+      KORDO_RUN_DISPATCHER: "in-process",
     });
 
     expect(config.artifactCleanupBatchSize).toBe(25);
@@ -40,6 +57,16 @@ describe("readConfig", () => {
       maxRunArtifactBytes: 5000,
     });
     expect(config.artifactRetentionDays).toBe(14);
+    expect(config.inngest).toEqual({
+      appId: "kordo-test",
+      baseUrl: "http://127.0.0.1:8288",
+      dev: false,
+      eventKey: "event-key",
+      serveOrigin: "http://127.0.0.1:4100",
+      servePath: "/custom/inngest",
+      signingKey: "signing-key",
+    });
+    expect(config.runDispatcherKind).toBe("in-process");
     expect(config.runPolicy).toEqual({
       allowedGatewayRoutes: ["github.issues.write", "stripe.customers.create"],
       allowedSandboxProfiles: ["docker-local-default", "microvm-default"],
@@ -60,5 +87,21 @@ describe("readConfig", () => {
         KORDO_ALLOWED_SANDBOX_PROFILES: "",
       }),
     ).toThrow("Invalid KORDO_ALLOWED_SANDBOX_PROFILES");
+  });
+
+  it("rejects invalid run dispatcher config", () => {
+    expect(() =>
+      readConfig({
+        KORDO_RUN_DISPATCHER: "queue",
+      }),
+    ).toThrow("Invalid KORDO_RUN_DISPATCHER");
+  });
+
+  it("rejects invalid Inngest dev config", () => {
+    expect(() =>
+      readConfig({
+        KORDO_INNGEST_DEV: "maybe",
+      }),
+    ).toThrow("Invalid KORDO_INNGEST_DEV");
   });
 });

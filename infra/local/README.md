@@ -34,11 +34,18 @@ Start the control plane in a second terminal:
 corepack pnpm --filter @kordo/control-plane dev
 ```
 
+Start the Inngest dev server in a third terminal:
+
+```sh
+npx --ignore-scripts=false inngest-cli@latest dev -u http://127.0.0.1:4100/api/inngest
+```
+
 The default local service URLs are:
 
 ```text
 control plane: http://127.0.0.1:4100
 runner:        http://127.0.0.1:4200
+inngest:       http://127.0.0.1:8288
 ```
 
 Create a manual run:
@@ -58,12 +65,19 @@ curl -sS -X POST http://127.0.0.1:4100/runs \
 ```
 
 In the current walking skeleton, `POST /runs` accepts a run and returns the
-queued run immediately with HTTP `202`. An in-process dispatcher then starts a
-runner job in the background. The runner starts a disposable Docker container,
-executes `node --version`, captures stdout, stderr, exit code, duration, cleanup
-status, and an artifact manifest, then returns the result to the dispatcher. The
-control plane stores stdout and stderr as local artifacts before it marks the run
-complete.
+queued run immediately with HTTP `202`. The control plane emits an Inngest
+`kordo/run.created` event. The Inngest function marks the run `running`, calls
+the runner, stores stdout and stderr as local artifacts, and marks the run
+complete. The runner starts a disposable Docker container, executes
+`node --version`, captures stdout, stderr, exit code, duration, cleanup status,
+and an artifact manifest, then returns the result to the control plane.
+
+If you want to run without the Inngest dev server during local debugging, start
+the control plane with:
+
+```sh
+KORDO_RUN_DISPATCHER=in-process corepack pnpm --filter @kordo/control-plane dev
+```
 
 The run should move from `queued` to `running` to `completed`. Use the returned
 run `id` to poll the run state:

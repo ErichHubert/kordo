@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
+import { serve } from "inngest/fastify";
 
 import {
   NonEmptyStringSchema,
@@ -7,6 +8,7 @@ import {
   type RunState,
 } from "@kordo/contracts";
 import { validateRunRequestPolicy, type RunPolicy } from "@kordo/policy";
+import type { Inngest, InngestFunction } from "inngest";
 
 import type { ArtifactLimits } from "./artifacts/artifact-limits.js";
 import type { ArtifactStore } from "./artifacts/artifact-store.js";
@@ -23,11 +25,20 @@ export interface BuildAppOptions {
   logger?: FastifyServerOptions["logger"];
   repository: RunRepository;
   runPolicy: RunPolicy;
+  inngest?: InngestServeOptions;
   runnerClient?: RunnerClient;
+}
+
+export interface InngestServeOptions {
+  client: Inngest.Like;
+  functions: InngestFunction.Like[];
+  serveOrigin?: string;
+  servePath: string;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
   const app = Fastify({
+    bodyLimit: 4 * 1024 * 1024,
     logger: options.logger ?? false,
   });
   const dispatcher = createRunDispatcher(options, app.log);
@@ -36,6 +47,19 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     await dispatcher.close?.();
     await options.repository.close?.();
   });
+
+  if (options.inngest) {
+    app.route({
+      handler: serve({
+        client: options.inngest.client,
+        functions: options.inngest.functions,
+        servePath: options.inngest.servePath,
+        ...(options.inngest.serveOrigin ? { serveOrigin: options.inngest.serveOrigin } : {}),
+      }),
+      method: ["GET", "POST", "PUT"],
+      url: options.inngest.servePath,
+    });
+  }
 
   app.post("/runs", async (request, reply) => {
     const parsed = RunRequestSchema.safeParse(request.body);
@@ -61,7 +85,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     const runnerJob = createRunnerJob(result.run, parsed.data);
 
     try {
-      dispatcher.dispatch(runnerJob);
+      await dispatcher.dispatch(runnerJob);
       return reply.code(202).send(result.run);
     } catch (error) {
       request.log.error({ error, runId: result.run.id }, "Run dispatch scheduling failed");

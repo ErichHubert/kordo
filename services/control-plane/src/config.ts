@@ -12,6 +12,24 @@ export const DEFAULT_ALLOWED_SANDBOX_PROFILES = ["docker-local-default"] as cons
 
 export const DEFAULT_ALLOWED_GATEWAY_ROUTES = [] as const;
 
+export const DEFAULT_RUN_DISPATCHER_KIND = "inngest";
+
+export const DEFAULT_INNGEST_APP_ID = "kordo-control-plane";
+
+export const DEFAULT_INNGEST_SERVE_PATH = "/api/inngest";
+
+export type RunDispatcherKind = "in-process" | "inngest";
+
+export interface InngestConfig {
+  appId: string;
+  baseUrl?: string;
+  dev: boolean;
+  eventKey?: string;
+  serveOrigin?: string;
+  servePath: string;
+  signingKey?: string;
+}
+
 export interface ControlPlaneConfig {
   artifactDir: string;
   artifactCleanupBatchSize: number;
@@ -19,12 +37,19 @@ export interface ControlPlaneConfig {
   artifactRetentionDays: number;
   databaseUrl: string;
   host: string;
+  inngest: InngestConfig;
   port: number;
+  runDispatcherKind: RunDispatcherKind;
   runPolicy: RunPolicy;
   runnerBaseUrl: string;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneConfig {
+  const inngestBaseUrl = env.KORDO_INNGEST_BASE_URL;
+  const inngestEventKey = env.KORDO_INNGEST_EVENT_KEY ?? env.INNGEST_EVENT_KEY;
+  const inngestServeOrigin = env.KORDO_INNGEST_SERVE_ORIGIN;
+  const inngestSigningKey = env.KORDO_INNGEST_SIGNING_KEY ?? env.INNGEST_SIGNING_KEY;
+
   return {
     artifactDir: env.KORDO_ARTIFACT_DIR ?? ".kordo/artifacts",
     artifactCleanupBatchSize: readPositiveInteger(
@@ -47,7 +72,19 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     ),
     databaseUrl: env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
     host: env.CONTROL_PLANE_HOST ?? "0.0.0.0",
+    inngest: {
+      appId: env.KORDO_INNGEST_APP_ID ?? DEFAULT_INNGEST_APP_ID,
+      ...(inngestBaseUrl ? { baseUrl: inngestBaseUrl } : {}),
+      dev: readBoolean(env.KORDO_INNGEST_DEV ?? "true", "KORDO_INNGEST_DEV"),
+      ...(inngestEventKey ? { eventKey: inngestEventKey } : {}),
+      ...(inngestServeOrigin ? { serveOrigin: inngestServeOrigin } : {}),
+      servePath: env.KORDO_INNGEST_SERVE_PATH ?? DEFAULT_INNGEST_SERVE_PATH,
+      ...(inngestSigningKey ? { signingKey: inngestSigningKey } : {}),
+    },
     port: readPort(env.CONTROL_PLANE_PORT ?? "4100"),
+    runDispatcherKind: readRunDispatcherKind(
+      env.KORDO_RUN_DISPATCHER ?? DEFAULT_RUN_DISPATCHER_KIND,
+    ),
     runPolicy: {
       allowedGatewayRoutes: readStringList(
         env.KORDO_ALLOWED_GATEWAY_ROUTES,
@@ -81,6 +118,26 @@ function readPositiveInteger(value: string, name: string): number {
   }
 
   return parsed;
+}
+
+function readRunDispatcherKind(value: string): RunDispatcherKind {
+  if (value === "in-process" || value === "inngest") {
+    return value;
+  }
+
+  throw new Error(`Invalid KORDO_RUN_DISPATCHER: ${value}`);
+}
+
+function readBoolean(value: string, name: string): boolean {
+  if (value === "true" || value === "1") {
+    return true;
+  }
+
+  if (value === "false" || value === "0") {
+    return false;
+  }
+
+  throw new Error(`Invalid ${name}: ${value}`);
 }
 
 function readStringList(value: string | undefined, defaultValue: readonly string[]): string[] {

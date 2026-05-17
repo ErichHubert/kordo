@@ -44,11 +44,10 @@ and does not delete queued or running run artifacts.
   local artifact files are deleted.
 - Reading an artifact whose file has been removed returns
   `ArtifactContentNotFound`.
-- Cleanup is intentionally manual until orchestration is introduced.
+- Cleanup can run manually or through the scheduled Inngest cleanup function.
 
 ## Deferred
 
-- Scheduled cleanup through Inngest.
 - Object-storage lifecycle policies.
 - Per-artifact-type limits.
 - Streaming large artifacts directly to storage.

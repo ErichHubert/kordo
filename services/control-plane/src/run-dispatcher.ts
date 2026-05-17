@@ -1,20 +1,23 @@
-import type { FailureReason, RunnerJob } from "@kordo/contracts";
+import type { RunnerJob } from "@kordo/contracts";
 
-import { ArtifactLimitExceededError, type ArtifactLimits } from "./artifacts/artifact-limits.js";
+import type { ArtifactLimits } from "./artifacts/artifact-limits.js";
 import type { ArtifactStore } from "./artifacts/artifact-store.js";
-import { materializeRunnerResultArtifacts } from "./artifacts/result-artifacts.js";
 import type { RunRepository } from "./repositories/run-repository.js";
+import {
+  createRunExecutionLogPayload,
+  executeRunnerJob,
+  recordRunnerJobExecutionFailure,
+  type RunExecutorLogger,
+} from "./run-executor.js";
 import type { RunnerClient } from "./runner-client.js";
 
 export interface RunDispatcher {
-  dispatch(job: RunnerJob): void;
+  dispatch(job: RunnerJob): Promise<void> | void;
   waitForIdle?(): Promise<void>;
   close?(): Promise<void>;
 }
 
-export interface RunDispatcherLogger {
-  error(payload: Record<string, unknown>, message: string): void;
-}
+export type RunDispatcherLogger = RunExecutorLogger;
 
 export interface InProcessRunDispatcherOptions {
   artifactLimits?: Partial<ArtifactLimits>;
@@ -42,7 +45,7 @@ export class InProcessRunDispatcher implements RunDispatcher {
       .finally(() => this.inFlight.delete(task))
       .catch((error: unknown) => {
         this.options.logger?.error(
-          createLogPayload(job, error),
+          createRunExecutionLogPayload(job, error),
           "Run dispatch task escaped with an unexpected rejection",
         );
       });
@@ -61,70 +64,11 @@ export class InProcessRunDispatcher implements RunDispatcher {
 
   private async dispatchInBackground(job: RunnerJob): Promise<void> {
     try {
-      await this.options.repository.markRunRunning(job.runId, job.id);
-      const runnerResult = await this.options.runnerClient.runJob(job);
-      const runnerResultWithArtifacts = await materializeRunnerResultArtifacts(
-        runnerResult,
-        this.options.artifactStore,
-        this.options.artifactLimits ? { limits: this.options.artifactLimits } : {},
-      );
-      await this.options.repository.finishRunFromRunnerResult(runnerResultWithArtifacts);
+      await executeRunnerJob(job, this.options);
     } catch (error) {
-      await this.recordDispatchFailure(job, error);
+      await recordRunnerJobExecutionFailure(job, error, this.options);
     }
   }
-
-  private async recordDispatchFailure(job: RunnerJob, error: unknown): Promise<void> {
-    const failureReason = createDispatchFailureReason(error);
-
-    this.options.logger?.error(
-      {
-        ...createLogPayload(job, error),
-        failureReason,
-      },
-      "Runner job failed before completion",
-    );
-
-    try {
-      await this.options.repository.failRun(
-        job.runId,
-        job.id,
-        failureReason,
-        "Runner job failed before completion.",
-      );
-    } catch (persistError) {
-      this.options.logger?.error(
-        {
-          ...createLogPayload(job, persistError),
-          originalError: error,
-        },
-        "Runner dispatch failure could not be persisted",
-      );
-    }
-  }
-}
-
-function createDispatchFailureReason(error: unknown): FailureReason {
-  if (error instanceof ArtifactLimitExceededError) {
-    return {
-      code: error.code,
-      message: error.message,
-    };
-  }
-
-  return {
-    code: "RunnerDispatchFailed",
-    message: error instanceof Error ? error.message : "Runner dispatch failed.",
-  };
-}
-
-function createLogPayload(job: RunnerJob, error: unknown): Record<string, unknown> {
-  return {
-    error,
-    runId: job.runId,
-    runnerJobId: job.id,
-    workflowId: job.workflowId,
-  };
 }
 
 export function createInProcessRunDispatcher(

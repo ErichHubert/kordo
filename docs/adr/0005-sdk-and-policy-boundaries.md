@@ -35,4 +35,3 @@ owned by control-plane runtime config.
 - Authentication and authorization.
 - PI.dev workflow package.
 - Gateway route policy.
-- Inngest-backed dispatch.
