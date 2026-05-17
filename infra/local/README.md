@@ -132,6 +132,14 @@ KORDO_MAX_ARTIFACT_BYTES=10485760
 KORDO_MAX_RUN_ARTIFACT_BYTES=52428800
 ```
 
+The default local run policy allows only the Docker-local sandbox profile and no
+gateway routes:
+
+```text
+KORDO_ALLOWED_SANDBOX_PROFILES=docker-local-default
+KORDO_ALLOWED_GATEWAY_ROUTES=
+```
+
 Clean up expired local artifact files for terminal runs with:
 
 ```sh

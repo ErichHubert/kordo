@@ -10,6 +10,7 @@ import {
   type RunnerJob,
   type RunnerJobResult,
 } from "@kordo/contracts";
+import type { RunPolicy } from "@kordo/policy";
 
 import { buildApp } from "./app.js";
 import { createInMemoryArtifactStore } from "./artifacts/in-memory-artifact-store.js";
@@ -33,6 +34,11 @@ const runRequest: RunRequest = {
   },
   sandboxProfile: "docker-local-default",
   allowedGatewayRoutes: [],
+};
+
+const localRunPolicy: RunPolicy = {
+  allowedGatewayRoutes: [],
+  allowedSandboxProfiles: ["docker-local-default"],
 };
 
 describe("control-plane run API", () => {
@@ -512,6 +518,36 @@ describe("control-plane run API", () => {
     });
   });
 
+  it("uses the configured run policy", async () => {
+    const testContext = createTestApp({
+      dispatcher: createNoopRunDispatcher(),
+      runPolicy: {
+        allowedGatewayRoutes: ["github.issues.write"],
+        allowedSandboxProfiles: ["docker-local-default", "microvm-default"],
+      },
+    });
+    app = testContext.app;
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: {
+        ...runRequest,
+        allowedGatewayRoutes: ["github.issues.write"],
+        sandboxProfile: "microvm-default",
+      },
+    });
+
+    expect(response.statusCode).toBe(202);
+
+    const queuedRun = RunStateSchema.parse(response.json());
+
+    expect(queuedRun).toMatchObject({
+      status: "queued",
+      currentPhase: "queued",
+    });
+  });
+
   it("returns 404 for missing runs", async () => {
     const testContext = createTestApp({ dispatcher: createNoopRunDispatcher() });
     app = testContext.app;
@@ -558,7 +594,7 @@ interface TestAppContext {
 }
 
 function createTestApp(
-  options: { dispatcher?: RunDispatcher; runnerClient?: RunnerClient } = {},
+  options: { dispatcher?: RunDispatcher; runPolicy?: RunPolicy; runnerClient?: RunnerClient } = {},
 ): TestAppContext {
   const repository = createInMemoryRunRepository();
   const artifactStore = createInMemoryArtifactStore();
@@ -575,6 +611,7 @@ function createTestApp(
       artifactStore,
       dispatcher,
       repository,
+      runPolicy: options.runPolicy ?? localRunPolicy,
     }),
     dispatcher,
     repository,

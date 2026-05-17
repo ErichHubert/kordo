@@ -6,7 +6,7 @@ import {
   type RunResult,
   type RunState,
 } from "@kordo/contracts";
-import { validateRunRequestPolicy } from "@kordo/policy";
+import { validateRunRequestPolicy, type RunPolicy } from "@kordo/policy";
 
 import type { ArtifactLimits } from "./artifacts/artifact-limits.js";
 import type { ArtifactStore } from "./artifacts/artifact-store.js";
@@ -22,6 +22,7 @@ export interface BuildAppOptions {
   dispatcher?: RunDispatcher;
   logger?: FastifyServerOptions["logger"];
   repository: RunRepository;
+  runPolicy: RunPolicy;
   runnerClient?: RunnerClient;
 }
 
@@ -46,7 +47,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
       });
     }
 
-    const policyResult = validateRunRequestPolicy(parsed.data);
+    const policyResult = validateRunRequestPolicy(parsed.data, options.runPolicy);
 
     if (!policyResult.ok) {
       return reply.code(400).send({

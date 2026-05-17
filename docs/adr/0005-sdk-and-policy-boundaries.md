@@ -15,12 +15,11 @@ call the same APIs and apply the same run admission decisions.
 Add two reusable packages:
 
 - `@kordo/sdk` is a thin typed client for the control-plane API.
-- `@kordo/policy` owns shared allowlist checks for run requests.
+- `@kordo/policy` owns shared allowlist evaluation for run requests.
 
 The control plane validates request shape through `@kordo/contracts` first, then
-validates run admission through `@kordo/policy`. The first policy allows only the
-`docker-local-default` sandbox profile and rejects all gateway routes until the
-gateway security model exists.
+validates run admission through `@kordo/policy`. The effective allowlists are
+owned by control-plane runtime config.
 
 ## Consequences
 
@@ -35,7 +34,5 @@ gateway security model exists.
 
 - Authentication and authorization.
 - PI.dev workflow package.
-- Runtime-configurable policy allowlists for sandbox profiles and gateway
-  routes.
 - Gateway route policy.
 - Inngest-backed dispatch.

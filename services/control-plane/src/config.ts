@@ -1,3 +1,5 @@
+import type { RunPolicy } from "@kordo/policy";
+
 import { DEFAULT_ARTIFACT_LIMITS, type ArtifactLimits } from "./artifacts/artifact-limits.js";
 
 export const DEFAULT_DATABASE_URL = "postgres://kordo:kordo@localhost:5432/kordo";
@@ -5,6 +7,10 @@ export const DEFAULT_DATABASE_URL = "postgres://kordo:kordo@localhost:5432/kordo
 export const DEFAULT_ARTIFACT_RETENTION_DAYS = 7;
 
 export const DEFAULT_ARTIFACT_CLEANUP_BATCH_SIZE = 500;
+
+export const DEFAULT_ALLOWED_SANDBOX_PROFILES = ["docker-local-default"] as const;
+
+export const DEFAULT_ALLOWED_GATEWAY_ROUTES = [] as const;
 
 export interface ControlPlaneConfig {
   artifactDir: string;
@@ -14,6 +20,7 @@ export interface ControlPlaneConfig {
   databaseUrl: string;
   host: string;
   port: number;
+  runPolicy: RunPolicy;
   runnerBaseUrl: string;
 }
 
@@ -41,6 +48,17 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     databaseUrl: env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
     host: env.CONTROL_PLANE_HOST ?? "0.0.0.0",
     port: readPort(env.CONTROL_PLANE_PORT ?? "4100"),
+    runPolicy: {
+      allowedGatewayRoutes: readStringList(
+        env.KORDO_ALLOWED_GATEWAY_ROUTES,
+        DEFAULT_ALLOWED_GATEWAY_ROUTES,
+      ),
+      allowedSandboxProfiles: readRequiredStringList(
+        env.KORDO_ALLOWED_SANDBOX_PROFILES,
+        "KORDO_ALLOWED_SANDBOX_PROFILES",
+        DEFAULT_ALLOWED_SANDBOX_PROFILES,
+      ),
+    },
     runnerBaseUrl: env.RUNNER_BASE_URL ?? "http://127.0.0.1:4200",
   };
 }
@@ -60,6 +78,31 @@ function readPositiveInteger(value: string, name: string): number {
 
   if (!Number.isInteger(parsed) || parsed <= 0 || String(parsed) !== value.trim()) {
     throw new Error(`Invalid ${name}: ${value}`);
+  }
+
+  return parsed;
+}
+
+function readStringList(value: string | undefined, defaultValue: readonly string[]): string[] {
+  if (value === undefined) {
+    return [...defaultValue];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function readRequiredStringList(
+  value: string | undefined,
+  name: string,
+  defaultValue: readonly string[],
+): string[] {
+  const parsed = readStringList(value, defaultValue);
+
+  if (parsed.length === 0) {
+    throw new Error(`Invalid ${name}: at least one value is required.`);
   }
 
   return parsed;

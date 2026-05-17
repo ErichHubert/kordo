@@ -17,6 +17,7 @@ export async function start(): Promise<void> {
     artifactStore: createLocalArtifactStore(config.artifactDir),
     logger: true,
     repository,
+    runPolicy: config.runPolicy,
     runnerClient,
   });
 

@@ -36,15 +36,19 @@ corepack pnpm verify
 - `@kordo/contracts` is the source of truth for runtime schemas and shared
   TypeScript types.
 - `@kordo/sdk` is the typed client for the control-plane API.
-- `@kordo/policy` holds the first shared allowlist rules for sandbox profiles
-  and gateway routes.
+- `@kordo/policy` evaluates run admission rules for sandbox profiles and gateway
+  routes.
 
-## Next Skeleton Step
+## Runtime Policy
 
-Before introducing Inngest, move the effective policy allowlists into
-control-plane runtime config. `@kordo/policy` should keep owning how policy is
-evaluated, while the control-plane config owns what sandbox profiles and gateway
-routes this environment allows.
+The control-plane config owns what this environment allows:
+
+```text
+KORDO_ALLOWED_SANDBOX_PROFILES=docker-local-default
+KORDO_ALLOWED_GATEWAY_ROUTES=
+```
+
+`@kordo/policy` owns how those allowlists are evaluated.
 
 ## Artifact Storage
 
