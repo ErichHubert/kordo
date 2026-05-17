@@ -39,11 +39,26 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  packages/policy:
+    dependencies:
+      '@kordo/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/sdk:
+    dependencies:
+      '@kordo/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   services/control-plane:
     dependencies:
       '@kordo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@kordo/policy':
+        specifier: workspace:*
+        version: link:../../packages/policy
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@types/pg@8.20.0)(pg@8.20.0)

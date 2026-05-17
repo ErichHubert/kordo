@@ -156,6 +156,9 @@ with `RunnerDispatchFailed` after the initial `POST /runs` response has already
 returned. In that case there is no runner result to persist, so
 `/runs/<runId>/result` returns `RunResultNotFound`.
 
+If a run request uses an unsupported sandbox profile or asks for gateway routes,
+the control plane rejects it before persistence with `RunPolicyRejected`.
+
 The runner still exposes its in-memory job view while the process is running.
 After a run moves to `running`, use its `runnerJobId` if you want to compare the
 control-plane result with the raw runner response:

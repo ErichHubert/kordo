@@ -1,0 +1,23 @@
+{
+  "name": "@kordo/policy",
+  "version": "0.1.0",
+  "description": "Shared Kordo policy helpers.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@kordo/contracts": "workspace:*"
+  }
+}

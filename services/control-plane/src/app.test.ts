@@ -470,6 +470,48 @@ describe("control-plane run API", () => {
     });
   });
 
+  it("rejects run requests with unsupported sandbox profiles", async () => {
+    const testContext = createTestApp({ dispatcher: createNoopRunDispatcher() });
+    app = testContext.app;
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: {
+        ...runRequest,
+        sandboxProfile: "microvm-default",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "RunPolicyRejected",
+      code: "SandboxProfileNotAllowed",
+      message: "Sandbox profile is not allowed: microvm-default",
+    });
+  });
+
+  it("rejects run requests with gateway routes before gateway policy exists", async () => {
+    const testContext = createTestApp({ dispatcher: createNoopRunDispatcher() });
+    app = testContext.app;
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: {
+        ...runRequest,
+        allowedGatewayRoutes: ["github.issues.write"],
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "RunPolicyRejected",
+      code: "GatewayRouteNotAllowed",
+      message: "Gateway route is not allowed: github.issues.write",
+    });
+  });
+
   it("returns 404 for missing runs", async () => {
     const testContext = createTestApp({ dispatcher: createNoopRunDispatcher() });
     app = testContext.app;

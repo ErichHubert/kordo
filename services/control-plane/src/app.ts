@@ -6,6 +6,7 @@ import {
   type RunResult,
   type RunState,
 } from "@kordo/contracts";
+import { validateRunRequestPolicy } from "@kordo/policy";
 
 import type { ArtifactLimits } from "./artifacts/artifact-limits.js";
 import type { ArtifactStore } from "./artifacts/artifact-store.js";
@@ -42,6 +43,16 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
       return reply.code(400).send({
         error: "InvalidRunRequest",
         issues: parsed.error.issues,
+      });
+    }
+
+    const policyResult = validateRunRequestPolicy(parsed.data);
+
+    if (!policyResult.ok) {
+      return reply.code(400).send({
+        error: "RunPolicyRejected",
+        code: policyResult.code,
+        message: policyResult.message,
       });
     }
 

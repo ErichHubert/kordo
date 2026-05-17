@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@kordo/contracts": "workspace:*",
+    "@kordo/policy": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.8.5",
     "pg": "^8.20.0"

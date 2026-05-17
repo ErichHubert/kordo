@@ -19,8 +19,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "test": "corepack pnpm --filter @kordo/contracts build && corepack pnpm -r --if-present test",
-    "typecheck": "corepack pnpm --filter @kordo/contracts build && corepack pnpm -r --if-present typecheck",
+    "test": "corepack pnpm --filter @kordo/contracts build && corepack pnpm --filter @kordo/policy build && corepack pnpm -r --if-present test",
+    "typecheck": "corepack pnpm --filter @kordo/contracts build && corepack pnpm --filter @kordo/policy build && corepack pnpm -r --if-present typecheck",
     "verify": "corepack pnpm build && corepack pnpm typecheck && corepack pnpm test && corepack pnpm lint && corepack pnpm format:check"
   },
   "devDependencies": {
