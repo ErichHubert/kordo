@@ -13,6 +13,7 @@ export async function start(): Promise<void> {
   const repository = createPostgresRunRepository(config.databaseUrl);
   const runnerClient = new HttpRunnerClient(config.runnerBaseUrl);
   const app = buildApp({
+    artifactLimits: config.artifactLimits,
     artifactStore: createLocalArtifactStore(config.artifactDir),
     logger: true,
     repository,

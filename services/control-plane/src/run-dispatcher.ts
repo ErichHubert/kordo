@@ -1,5 +1,6 @@
-import type { RunnerJob } from "@kordo/contracts";
+import type { FailureReason, RunnerJob } from "@kordo/contracts";
 
+import { ArtifactLimitExceededError, type ArtifactLimits } from "./artifacts/artifact-limits.js";
 import type { ArtifactStore } from "./artifacts/artifact-store.js";
 import { materializeRunnerResultArtifacts } from "./artifacts/result-artifacts.js";
 import type { RunRepository } from "./repositories/run-repository.js";
@@ -16,6 +17,7 @@ export interface RunDispatcherLogger {
 }
 
 export interface InProcessRunDispatcherOptions {
+  artifactLimits?: Partial<ArtifactLimits>;
   artifactStore: ArtifactStore;
   logger?: RunDispatcherLogger;
   repository: RunRepository;
@@ -64,6 +66,7 @@ export class InProcessRunDispatcher implements RunDispatcher {
       const runnerResultWithArtifacts = await materializeRunnerResultArtifacts(
         runnerResult,
         this.options.artifactStore,
+        this.options.artifactLimits ? { limits: this.options.artifactLimits } : {},
       );
       await this.options.repository.finishRunFromRunnerResult(runnerResultWithArtifacts);
     } catch (error) {
@@ -72,10 +75,7 @@ export class InProcessRunDispatcher implements RunDispatcher {
   }
 
   private async recordDispatchFailure(job: RunnerJob, error: unknown): Promise<void> {
-    const failureReason = {
-      code: "RunnerDispatchFailed",
-      message: error instanceof Error ? error.message : "Runner dispatch failed.",
-    };
+    const failureReason = createDispatchFailureReason(error);
 
     this.options.logger?.error(
       {
@@ -102,6 +102,20 @@ export class InProcessRunDispatcher implements RunDispatcher {
       );
     }
   }
+}
+
+function createDispatchFailureReason(error: unknown): FailureReason {
+  if (error instanceof ArtifactLimitExceededError) {
+    return {
+      code: error.code,
+      message: error.message,
+    };
+  }
+
+  return {
+    code: "RunnerDispatchFailed",
+    message: error instanceof Error ? error.message : "Runner dispatch failed.",
+  };
 }
 
 function createLogPayload(job: RunnerJob, error: unknown): Record<string, unknown> {

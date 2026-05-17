@@ -191,6 +191,19 @@ describe("@kordo/contracts", () => {
     );
   });
 
+  it("accepts ArtifactRef truncation metadata", () => {
+    expect(
+      ArtifactRefSchema.parse({
+        ...artifactRef,
+        originalSizeBytes: 512,
+        truncated: true,
+      }),
+    ).toMatchObject({
+      originalSizeBytes: 512,
+      truncated: true,
+    });
+  });
+
   it("accepts a valid RunnerJobResult", () => {
     expect(RunnerJobResultSchema.parse(runnerJobResult)).toEqual(runnerJobResult);
   });

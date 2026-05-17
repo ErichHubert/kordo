@@ -122,6 +122,22 @@ Override that location with:
 KORDO_ARTIFACT_DIR=/tmp/kordo-artifacts corepack pnpm --filter @kordo/control-plane dev
 ```
 
+The default local artifact policy keeps files for 7 days, truncates individual
+log artifacts after 10 MB, and fails a run if materialized artifacts exceed 50
+MB total:
+
+```text
+KORDO_ARTIFACT_RETENTION_DAYS=7
+KORDO_MAX_ARTIFACT_BYTES=10485760
+KORDO_MAX_RUN_ARTIFACT_BYTES=52428800
+```
+
+Clean up expired local artifact files for terminal runs with:
+
+```sh
+corepack pnpm --filter @kordo/control-plane artifacts:cleanup
+```
+
 ## Failure behavior
 
 If the runner accepts a job and the sandbox command fails, times out, or the

@@ -39,7 +39,6 @@ default. The directory can be overridden with `KORDO_ARTIFACT_DIR`.
 ## Deferred
 
 - Authenticated artifact access.
-- Artifact retention and garbage collection.
 - Object storage.
 - Large artifact streaming.
 - Redaction of sensitive output.

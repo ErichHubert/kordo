@@ -49,4 +49,30 @@ describe("LocalArtifactStore", () => {
 
     expect(await artifactStore.readArtifact("run_missing", artifact)).toBeNull();
   });
+
+  it("deletes artifact content and reports missing deletes", async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), "kordo-artifacts-"));
+    const artifactStore = createLocalArtifactStore(rootDir);
+    const artifact = await artifactStore.writeArtifact({
+      runId: "run_123",
+      kind: "log",
+      name: "stdout.log",
+      content: "hello\n",
+      contentType: "text/plain; charset=utf-8",
+      originalSizeBytes: 12,
+      truncated: true,
+    });
+
+    expect(artifact).toMatchObject({
+      originalSizeBytes: 12,
+      truncated: true,
+    });
+    expect(await artifactStore.deleteArtifact("run_123", artifact)).toEqual({
+      status: "deleted",
+    });
+    expect(await artifactStore.readArtifact("run_123", artifact)).toBeNull();
+    expect(await artifactStore.deleteArtifact("run_123", artifact)).toEqual({
+      status: "missing",
+    });
+  });
 });

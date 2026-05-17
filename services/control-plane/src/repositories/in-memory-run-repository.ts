@@ -14,7 +14,9 @@ import {
   createPhaseEvent,
   createQueuedRun,
   createRunResultFromRunnerResult,
+  type ArtifactCleanupCandidate,
   type CreateRunResult,
+  type ListArtifactCleanupCandidatesOptions,
   type ListRunsOptions,
   type RunRepository,
 } from "./run-repository.js";
@@ -49,6 +51,22 @@ export class InMemoryRunRepository implements RunRepository {
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .slice(0, options.limit)
       .map((run) => RunStateSchema.parse(run));
+  }
+
+  async listArtifactCleanupCandidates(
+    options: ListArtifactCleanupCandidatesOptions,
+  ): Promise<ArtifactCleanupCandidate[]> {
+    return [...this.runs.values()]
+      .filter((run) => isTerminalRunStatus(run.status))
+      .map((run) => ({
+        runId: run.id,
+        artifacts: run.artifacts.filter(
+          (artifact) => new Date(artifact.createdAt) < options.expiresBefore,
+        ),
+      }))
+      .filter((candidate) => candidate.artifacts.length > 0)
+      .sort((left, right) => left.runId.localeCompare(right.runId))
+      .slice(0, options.limit);
   }
 
   async getRunResult(runId: string): Promise<RunResult | null> {
@@ -150,4 +168,8 @@ export class InMemoryRunRepository implements RunRepository {
 
 export function createInMemoryRunRepository(): RunRepository {
   return new InMemoryRunRepository();
+}
+
+function isTerminalRunStatus(status: RunState["status"]): boolean {
+  return status === "completed" || status === "failed" || status === "cancelled";
 }

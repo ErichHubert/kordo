@@ -119,6 +119,35 @@ describe("InProcessRunDispatcher", () => {
     });
   });
 
+  it("persists artifact limit failures with a specific failure code", async () => {
+    const repository = createInMemoryRunRepository();
+    const { run } = await repository.createRun(runRequest);
+    const job = createRunnerJob(run, runRequest);
+    const dispatcher = createInProcessRunDispatcher({
+      artifactLimits: {
+        maxArtifactBytes: 10,
+        maxRunArtifactBytes: 6,
+      },
+      artifactStore: createInMemoryArtifactStore(),
+      repository,
+      runnerClient: createCompletingRunnerClient(),
+    });
+
+    dispatcher.dispatch(job);
+    await dispatcher.waitForIdle?.();
+
+    const failedRun = RunStateSchema.parse(await repository.getRun(run.id));
+
+    expect(failedRun).toMatchObject({
+      status: "failed",
+      currentPhase: null,
+      failureReason: {
+        code: "ArtifactLimitExceeded",
+      },
+    });
+    expect(await repository.getRunResult(run.id)).toBeNull();
+  });
+
   it("waits for in-flight dispatch before closing and rejects new dispatches after close", async () => {
     const repository = createInMemoryRunRepository();
     const deferredRunner = createDeferredRunnerClient();

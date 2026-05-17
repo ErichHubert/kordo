@@ -74,6 +74,8 @@ export const ArtifactRefSchema = z
       .regex(/^[a-f0-9]{64}$/)
       .optional(),
     sizeBytes: z.number().int().nonnegative().optional(),
+    originalSizeBytes: z.number().int().nonnegative().optional(),
+    truncated: z.boolean().optional(),
     createdAt: TimestampSchema,
   })
   .strict();

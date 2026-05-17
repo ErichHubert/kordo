@@ -1,7 +1,16 @@
+import { DEFAULT_ARTIFACT_LIMITS, type ArtifactLimits } from "./artifacts/artifact-limits.js";
+
 export const DEFAULT_DATABASE_URL = "postgres://kordo:kordo@localhost:5432/kordo";
+
+export const DEFAULT_ARTIFACT_RETENTION_DAYS = 7;
+
+export const DEFAULT_ARTIFACT_CLEANUP_BATCH_SIZE = 500;
 
 export interface ControlPlaneConfig {
   artifactDir: string;
+  artifactCleanupBatchSize: number;
+  artifactLimits: ArtifactLimits;
+  artifactRetentionDays: number;
   databaseUrl: string;
   host: string;
   port: number;
@@ -11,6 +20,24 @@ export interface ControlPlaneConfig {
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneConfig {
   return {
     artifactDir: env.KORDO_ARTIFACT_DIR ?? ".kordo/artifacts",
+    artifactCleanupBatchSize: readPositiveInteger(
+      env.KORDO_ARTIFACT_CLEANUP_BATCH_SIZE ?? String(DEFAULT_ARTIFACT_CLEANUP_BATCH_SIZE),
+      "KORDO_ARTIFACT_CLEANUP_BATCH_SIZE",
+    ),
+    artifactLimits: {
+      maxArtifactBytes: readPositiveInteger(
+        env.KORDO_MAX_ARTIFACT_BYTES ?? String(DEFAULT_ARTIFACT_LIMITS.maxArtifactBytes),
+        "KORDO_MAX_ARTIFACT_BYTES",
+      ),
+      maxRunArtifactBytes: readPositiveInteger(
+        env.KORDO_MAX_RUN_ARTIFACT_BYTES ?? String(DEFAULT_ARTIFACT_LIMITS.maxRunArtifactBytes),
+        "KORDO_MAX_RUN_ARTIFACT_BYTES",
+      ),
+    },
+    artifactRetentionDays: readPositiveInteger(
+      env.KORDO_ARTIFACT_RETENTION_DAYS ?? String(DEFAULT_ARTIFACT_RETENTION_DAYS),
+      "KORDO_ARTIFACT_RETENTION_DAYS",
+    ),
     databaseUrl: env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
     host: env.CONTROL_PLANE_HOST ?? "0.0.0.0",
     port: readPort(env.CONTROL_PLANE_PORT ?? "4100"),
@@ -26,4 +53,14 @@ function readPort(value: string): number {
   }
 
   return port;
+}
+
+function readPositiveInteger(value: string, name: string): number {
+  const parsed = Number.parseInt(value, 10);
+
+  if (!Number.isInteger(parsed) || parsed <= 0 || String(parsed) !== value.trim()) {
+    throw new Error(`Invalid ${name}: ${value}`);
+  }
+
+  return parsed;
 }

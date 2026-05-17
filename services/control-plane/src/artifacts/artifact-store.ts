@@ -6,7 +6,9 @@ export interface WriteArtifactInput {
   createdAt?: Date;
   kind: ArtifactKind;
   name: string;
+  originalSizeBytes?: number;
   runId: string;
+  truncated?: boolean;
 }
 
 export interface StoredArtifact {
@@ -15,7 +17,12 @@ export interface StoredArtifact {
   contentType: string;
 }
 
+export interface DeleteArtifactResult {
+  status: "deleted" | "missing";
+}
+
 export interface ArtifactStore {
+  deleteArtifact(runId: string, artifact: ArtifactRef): Promise<DeleteArtifactResult>;
   readArtifact(runId: string, artifact: ArtifactRef): Promise<StoredArtifact | null>;
   writeArtifact(input: WriteArtifactInput): Promise<ArtifactRef>;
 }

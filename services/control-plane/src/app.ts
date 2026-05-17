@@ -7,6 +7,7 @@ import {
   type RunState,
 } from "@kordo/contracts";
 
+import type { ArtifactLimits } from "./artifacts/artifact-limits.js";
 import type { ArtifactStore } from "./artifacts/artifact-store.js";
 import type { RunRepository } from "./repositories/run-repository.js";
 import { createRunnerJob } from "./runner-jobs.js";
@@ -15,6 +16,7 @@ import { parseRunListQuery } from "./run-list-query.js";
 import type { RunnerClient } from "./runner-client.js";
 
 export interface BuildAppOptions {
+  artifactLimits?: Partial<ArtifactLimits>;
   artifactStore: ArtifactStore;
   dispatcher?: RunDispatcher;
   logger?: FastifyServerOptions["logger"];
@@ -182,6 +184,7 @@ function createRunDispatcher(
   }
 
   return createInProcessRunDispatcher({
+    ...(options.artifactLimits ? { artifactLimits: options.artifactLimits } : {}),
     artifactStore: options.artifactStore,
     logger,
     repository: options.repository,

@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 
@@ -19,7 +19,9 @@ import {
   createPhaseEvent,
   createQueuedRun,
   createRunResultFromRunnerResult,
+  type ArtifactCleanupCandidate,
   type CreateRunResult,
+  type ListArtifactCleanupCandidatesOptions,
   type ListRunsOptions,
   type RunRepository,
 } from "./run-repository.js";
@@ -95,6 +97,29 @@ export class PostgresRunRepository implements RunRepository {
           .limit(options.limit);
 
     return rows.map(mapRunRow);
+  }
+
+  async listArtifactCleanupCandidates(
+    options: ListArtifactCleanupCandidatesOptions,
+  ): Promise<ArtifactCleanupCandidate[]> {
+    const rows = await this.db
+      .select({
+        artifacts: schema.runs.artifacts,
+        runId: schema.runs.id,
+      })
+      .from(schema.runs)
+      .where(inArray(schema.runs.status, ["completed", "failed", "cancelled"]))
+      .orderBy(asc(schema.runs.updatedAt))
+      .limit(options.limit);
+
+    return rows
+      .map((row) => ({
+        runId: row.runId,
+        artifacts: row.artifacts.filter(
+          (artifact) => new Date(artifact.createdAt) < options.expiresBefore,
+        ),
+      }))
+      .filter((candidate) => candidate.artifacts.length > 0);
   }
 
   async getRunResult(runId: string): Promise<RunResult | null> {

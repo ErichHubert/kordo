@@ -18,6 +18,10 @@ export class InMemoryArtifactStore implements ArtifactStore {
       uri: createArtifactUri(input.runId, input.name),
       sha256: createSha256(content),
       sizeBytes: content.byteLength,
+      ...(input.originalSizeBytes !== undefined
+        ? { originalSizeBytes: input.originalSizeBytes }
+        : {}),
+      ...(input.truncated !== undefined ? { truncated: input.truncated } : {}),
       createdAt: (input.createdAt ?? new Date()).toISOString(),
     });
 
@@ -42,6 +46,15 @@ export class InMemoryArtifactStore implements ArtifactStore {
       content: Buffer.from(stored.content),
       contentType: stored.contentType,
     };
+  }
+
+  async deleteArtifact(runId: string, artifact: ArtifactRef) {
+    const key = createArtifactKey(runId, artifact.id);
+    const existed = this.artifacts.delete(key);
+
+    return {
+      status: existed ? "deleted" : "missing",
+    } as const;
   }
 }
 

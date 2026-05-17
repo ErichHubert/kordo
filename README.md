@@ -16,7 +16,8 @@ persists queued/running/completed lifecycle events in PostgreSQL, dispatches a
 runner job asynchronously, executes `node --version` in a disposable Docker-local
 sandbox, and persists the final execution result for inspection through the
 control-plane API. The control plane stores stdout and stderr as local artifacts
-and exposes them through run-scoped artifact URLs.
+and exposes them through run-scoped artifact URLs. Local log artifacts are
+limited, can be truncated, and can be cleaned up after a retention period.
 
 ## Commands
 
@@ -28,6 +29,24 @@ corepack pnpm test
 corepack pnpm lint
 corepack pnpm format:check
 corepack pnpm verify
+```
+
+## Artifact Storage
+
+The local control plane stores artifact content under `.kordo/artifacts` by
+default and stores artifact metadata in PostgreSQL. The default artifact policy
+is:
+
+```text
+KORDO_ARTIFACT_RETENTION_DAYS=7
+KORDO_MAX_ARTIFACT_BYTES=10485760
+KORDO_MAX_RUN_ARTIFACT_BYTES=52428800
+```
+
+Run this command to remove expired local artifact files for terminal runs:
+
+```sh
+corepack pnpm --filter @kordo/control-plane artifacts:cleanup
 ```
 
 ## CI

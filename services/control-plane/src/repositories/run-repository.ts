@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  type ArtifactRef,
   type FailureReason,
   PhaseEventSchema,
   RunResultSchema,
@@ -23,8 +24,21 @@ export interface ListRunsOptions {
   status?: RunStatus;
 }
 
+export interface ListArtifactCleanupCandidatesOptions {
+  expiresBefore: Date;
+  limit: number;
+}
+
+export interface ArtifactCleanupCandidate {
+  artifacts: ArtifactRef[];
+  runId: string;
+}
+
 export interface RunRepository {
   createRun(request: RunRequest): Promise<CreateRunResult>;
+  listArtifactCleanupCandidates(
+    options: ListArtifactCleanupCandidatesOptions,
+  ): Promise<ArtifactCleanupCandidate[]>;
   listRuns(options: ListRunsOptions): Promise<RunState[]>;
   getRun(id: string): Promise<RunState | null>;
   getRunResult(runId: string): Promise<RunResult | null>;

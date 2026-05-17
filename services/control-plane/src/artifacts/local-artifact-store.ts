@@ -1,10 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rmdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { ArtifactRefSchema, type ArtifactRef } from "@kordo/contracts";
 
-import type { ArtifactStore, StoredArtifact, WriteArtifactInput } from "./artifact-store.js";
+import type {
+  ArtifactStore,
+  DeleteArtifactResult,
+  StoredArtifact,
+  WriteArtifactInput,
+} from "./artifact-store.js";
 
 export class LocalArtifactStore implements ArtifactStore {
   private readonly rootDir: string;
@@ -24,6 +29,10 @@ export class LocalArtifactStore implements ArtifactStore {
       uri: createArtifactUri(input.runId, input.name),
       sha256: createSha256(content),
       sizeBytes: content.byteLength,
+      ...(input.originalSizeBytes !== undefined
+        ? { originalSizeBytes: input.originalSizeBytes }
+        : {}),
+      ...(input.truncated !== undefined ? { truncated: input.truncated } : {}),
       createdAt: (input.createdAt ?? new Date()).toISOString(),
     });
     const artifactPath = this.createArtifactPath(input.runId, artifact.id);
@@ -44,8 +53,24 @@ export class LocalArtifactStore implements ArtifactStore {
         contentType: "text/plain; charset=utf-8",
       };
     } catch (error) {
-      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      if (isNodeErrorCode(error, "ENOENT")) {
         return null;
+      }
+
+      throw error;
+    }
+  }
+
+  async deleteArtifact(runId: string, artifact: ArtifactRef): Promise<DeleteArtifactResult> {
+    const artifactPath = this.createArtifactPath(runId, artifact.id);
+
+    try {
+      await unlink(artifactPath);
+      await removeEmptyDirectory(path.dirname(artifactPath));
+      return { status: "deleted" };
+    } catch (error) {
+      if (isNodeErrorCode(error, "ENOENT")) {
+        return { status: "missing" };
       }
 
       throw error;
@@ -77,4 +102,20 @@ function sanitizePathSegment(value: string): string {
 
 function createSha256(content: Buffer): string {
   return createHash("sha256").update(content).digest("hex");
+}
+
+async function removeEmptyDirectory(directory: string): Promise<void> {
+  try {
+    await rmdir(directory);
+  } catch (error) {
+    if (isNodeErrorCode(error, "ENOENT") || isNodeErrorCode(error, "ENOTEMPTY")) {
+      return;
+    }
+
+    throw error;
+  }
+}
+
+function isNodeErrorCode(error: unknown, code: string): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === code);
 }
