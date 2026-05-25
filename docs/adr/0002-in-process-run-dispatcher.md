@@ -2,7 +2,8 @@
 
 ## Status
 
-Superseded by [ADR 0007](./0007-inngest-run-dispatch.md)
+Superseded by [ADR 0007](./0007-inngest-run-dispatch.md). The production
+in-process dispatcher was removed in Milestone 11.1.
 
 ## Context
 

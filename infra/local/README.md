@@ -72,13 +72,6 @@ complete. The runner starts a disposable Docker container, executes
 `node --version`, captures stdout, stderr, exit code, duration, cleanup status,
 and an artifact manifest, then returns the result to the control plane.
 
-If you want to run without the Inngest dev server during local debugging, start
-the control plane with:
-
-```sh
-KORDO_RUN_DISPATCHER=in-process corepack pnpm --filter @kordo/control-plane dev
-```
-
 The run should move from `queued` to `running` to `completed`. Use the returned
 run `id` to poll the run state:
 

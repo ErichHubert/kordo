@@ -14,9 +14,11 @@ import type { RunPolicy } from "@kordo/policy";
 
 import { buildApp } from "./app.js";
 import { createInMemoryArtifactStore } from "./artifacts/in-memory-artifact-store.js";
+import type { ArtifactStore } from "./artifacts/artifact-store.js";
 import { createInMemoryRunRepository } from "./repositories/in-memory-run-repository.js";
 import type { RunRepository } from "./repositories/run-repository.js";
-import { createInProcessRunDispatcher, type RunDispatcher } from "./run-dispatcher.js";
+import { executeRunnerJob, recordRunnerJobExecutionFailure } from "./run-executor.js";
+import type { RunDispatcher } from "./run-dispatcher.js";
 import type { RunnerClient } from "./runner-client.js";
 
 const runRequest: RunRequest = {
@@ -635,7 +637,7 @@ function createTestApp(
   const artifactStore = createInMemoryArtifactStore();
   const dispatcher =
     options.dispatcher ??
-    createInProcessRunDispatcher({
+    createTestExecutingRunDispatcher({
       artifactStore,
       repository,
       runnerClient: options.runnerClient ?? createCompletingRunnerClient(),
@@ -664,6 +666,38 @@ function createRejectingRunDispatcher(error: Error): RunDispatcher {
     async dispatch() {
       throw error;
     },
+  };
+}
+
+function createTestExecutingRunDispatcher(options: {
+  artifactStore: ArtifactStore;
+  repository: RunRepository;
+  runnerClient: RunnerClient;
+}): RunDispatcher {
+  const inFlight = new Set<Promise<void>>();
+  const waitForIdle = async () => {
+    while (inFlight.size > 0) {
+      await Promise.allSettled([...inFlight]);
+    }
+  };
+
+  return {
+    dispatch(job) {
+      const task = (async () => {
+        try {
+          await executeRunnerJob(job, options);
+        } catch (error) {
+          await recordRunnerJobExecutionFailure(job, error, {
+            repository: options.repository,
+          });
+        }
+      })();
+
+      inFlight.add(task);
+      task.finally(() => inFlight.delete(task));
+    },
+    close: waitForIdle,
+    waitForIdle,
   };
 }
 

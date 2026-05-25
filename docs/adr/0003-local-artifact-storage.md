@@ -15,7 +15,7 @@ outputs, downloadable logs, UI inspection, or future object storage.
 
 The control plane owns artifact persistence for now.
 
-When a runner result returns, the in-process dispatcher stores stdout and stderr
+When a runner result returns, the Inngest run function stores stdout and stderr
 through an `ArtifactStore` before finalizing the run. The resulting
 `ArtifactRef`s are attached to the runner result manifest, persisted on the run,
 and exposed through a run-scoped control-plane read endpoint:

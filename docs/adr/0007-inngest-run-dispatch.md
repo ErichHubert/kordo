@@ -13,7 +13,7 @@ retry boundary.
 
 ## Decision
 
-Use Inngest as the default run dispatcher.
+Use Inngest as the run dispatcher.
 
 `POST /runs` still validates, persists a queued run, creates a runner job, and
 returns HTTP `202`. Instead of executing the job in-process, it sends a
@@ -26,20 +26,13 @@ The control plane exposes Inngest functions at:
 /api/inngest
 ```
 
-The old in-process dispatcher remains available through:
-
-```text
-KORDO_RUN_DISPATCHER=in-process
-```
-
 The artifact cleanup job is also registered as a scheduled Inngest function.
 
 ## Consequences
 
 - The public run API remains stable.
-- Run execution is now event-backed by default.
-- Local development needs the Inngest dev server unless the in-process fallback
-  is selected.
+- Run execution is now event-backed.
+- Local development needs the Inngest dev server.
 - Inngest retries apply to failed function execution before the failure handler
   marks the run failed.
 

@@ -27,8 +27,7 @@ defaults for the control plane.
 
 - Sandbox profile and gateway route allowlists can differ by environment without
   code changes.
-- Inngest can reuse the same configured policy when orchestration moves out of
-  the in-process dispatcher.
+- Inngest uses the same configured policy as the rest of the control plane.
 - The app requires an explicit `RunPolicy`, avoiding hidden service defaults.
 
 ## Deferred

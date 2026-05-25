@@ -12,13 +12,9 @@ export const DEFAULT_ALLOWED_SANDBOX_PROFILES = ["docker-local-default"] as cons
 
 export const DEFAULT_ALLOWED_GATEWAY_ROUTES = [] as const;
 
-export const DEFAULT_RUN_DISPATCHER_KIND = "inngest";
-
 export const DEFAULT_INNGEST_APP_ID = "kordo-control-plane";
 
 export const DEFAULT_INNGEST_SERVE_PATH = "/api/inngest";
-
-export type RunDispatcherKind = "in-process" | "inngest";
 
 export interface InngestConfig {
   appId: string;
@@ -39,7 +35,6 @@ export interface ControlPlaneConfig {
   host: string;
   inngest: InngestConfig;
   port: number;
-  runDispatcherKind: RunDispatcherKind;
   runPolicy: RunPolicy;
   runnerBaseUrl: string;
 }
@@ -82,9 +77,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
       ...(inngestSigningKey ? { signingKey: inngestSigningKey } : {}),
     },
     port: readPort(env.CONTROL_PLANE_PORT ?? "4100"),
-    runDispatcherKind: readRunDispatcherKind(
-      env.KORDO_RUN_DISPATCHER ?? DEFAULT_RUN_DISPATCHER_KIND,
-    ),
     runPolicy: {
       allowedGatewayRoutes: readStringList(
         env.KORDO_ALLOWED_GATEWAY_ROUTES,
@@ -118,14 +110,6 @@ function readPositiveInteger(value: string, name: string): number {
   }
 
   return parsed;
-}
-
-function readRunDispatcherKind(value: string): RunDispatcherKind {
-  if (value === "in-process" || value === "inngest") {
-    return value;
-  }
-
-  throw new Error(`Invalid KORDO_RUN_DISPATCHER: ${value}`);
 }
 
 function readBoolean(value: string, name: string): boolean {

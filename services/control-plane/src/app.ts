@@ -10,23 +10,19 @@ import {
 import { validateRunRequestPolicy, type RunPolicy } from "@kordo/policy";
 import type { Inngest, InngestFunction } from "inngest";
 
-import type { ArtifactLimits } from "./artifacts/artifact-limits.js";
 import type { ArtifactStore } from "./artifacts/artifact-store.js";
 import type { RunRepository } from "./repositories/run-repository.js";
+import type { RunDispatcher } from "./run-dispatcher.js";
 import { createRunnerJob } from "./runner-jobs.js";
-import { createInProcessRunDispatcher, type RunDispatcher } from "./run-dispatcher.js";
 import { parseRunListQuery } from "./run-list-query.js";
-import type { RunnerClient } from "./runner-client.js";
 
 export interface BuildAppOptions {
-  artifactLimits?: Partial<ArtifactLimits>;
   artifactStore: ArtifactStore;
-  dispatcher?: RunDispatcher;
+  dispatcher: RunDispatcher;
   logger?: FastifyServerOptions["logger"];
   repository: RunRepository;
   runPolicy: RunPolicy;
   inngest?: InngestServeOptions;
-  runnerClient?: RunnerClient;
 }
 
 export interface InngestServeOptions {
@@ -41,7 +37,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     bodyLimit: 4 * 1024 * 1024,
     logger: options.logger ?? false,
   });
-  const dispatcher = createRunDispatcher(options, app.log);
+  const dispatcher = options.dispatcher;
 
   app.addHook("onClose", async () => {
     await dispatcher.close?.();
@@ -205,27 +201,6 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   });
 
   return app;
-}
-
-function createRunDispatcher(
-  options: BuildAppOptions,
-  logger: FastifyInstance["log"],
-): RunDispatcher {
-  if (options.dispatcher) {
-    return options.dispatcher;
-  }
-
-  if (!options.runnerClient) {
-    throw new Error("runnerClient is required when dispatcher is not provided.");
-  }
-
-  return createInProcessRunDispatcher({
-    ...(options.artifactLimits ? { artifactLimits: options.artifactLimits } : {}),
-    artifactStore: options.artifactStore,
-    logger,
-    repository: options.repository,
-    runnerClient: options.runnerClient,
-  });
 }
 
 function parseRunId(params: unknown): string | null {

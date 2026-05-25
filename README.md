@@ -53,18 +53,11 @@ KORDO_ALLOWED_GATEWAY_ROUTES=
 
 ## Run Dispatch
 
-The default dispatcher is Inngest-backed:
+Run dispatch is Inngest-backed:
 
 ```text
-KORDO_RUN_DISPATCHER=inngest
 KORDO_INNGEST_DEV=true
 KORDO_INNGEST_SERVE_PATH=/api/inngest
-```
-
-For development without an Inngest dev server, use:
-
-```text
-KORDO_RUN_DISPATCHER=in-process
 ```
 
 ## Artifact Storage

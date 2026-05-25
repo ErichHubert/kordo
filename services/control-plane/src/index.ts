@@ -27,11 +27,8 @@ export async function start(): Promise<void> {
     runnerClient,
   });
   const app = buildApp({
-    artifactLimits: config.artifactLimits,
     artifactStore,
-    ...(config.runDispatcherKind === "inngest"
-      ? { dispatcher: createInngestRunDispatcher({ eventSender: inngest }) }
-      : {}),
+    dispatcher: createInngestRunDispatcher({ eventSender: inngest }),
     inngest: {
       client: inngest,
       functions: inngestFunctions,
@@ -41,7 +38,6 @@ export async function start(): Promise<void> {
     logger: true,
     repository,
     runPolicy: config.runPolicy,
-    ...(config.runDispatcherKind === "in-process" ? { runnerClient } : {}),
   });
 
   await app.listen({
