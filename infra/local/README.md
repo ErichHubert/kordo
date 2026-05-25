@@ -2,9 +2,59 @@
 
 This directory holds Docker Compose configuration for local development.
 
-## PostgreSQL
+## Full Docker Compose Stack
 
-Start the local database:
+Start the full local stack:
+
+```sh
+corepack pnpm dev:stack
+```
+
+This starts:
+
+- PostgreSQL for Kordo state.
+- PostgreSQL for Hatchet state.
+- Hatchet Lite.
+- A one-shot Hatchet token bootstrap service.
+- A one-shot Kordo migration service.
+- The sandbox runner.
+- The control-plane API.
+- The orchestrator worker.
+
+Run the composed smoke test from another terminal:
+
+```sh
+corepack pnpm smoke:stack
+```
+
+Stop the stack:
+
+```sh
+corepack pnpm dev:stack:down
+```
+
+The default local service URLs are:
+
+```text
+control plane: http://127.0.0.1:4100
+sandbox runner: http://127.0.0.1:4200
+hatchet:       http://127.0.0.1:8888
+```
+
+The runner container mounts the host Docker socket:
+
+```text
+/var/run/docker.sock:/var/run/docker.sock
+```
+
+That is intentional for local development because the runner needs to create
+the disposable Docker sandbox container. Do not treat this as a production
+isolation boundary.
+
+## Host Development Mode
+
+Use host-side commands when you want faster edit/reload loops or debugger
+integration. Start only PostgreSQL through Compose:
 
 ```sh
 docker compose -f infra/local/compose.yaml up -d postgres
@@ -22,27 +72,15 @@ Run the control-plane migrations:
 corepack pnpm --filter @kordo/control-plane db:migrate
 ```
 
-Start the sandbox runner:
-
-```sh
-corepack pnpm --filter @kordo/runner dev
-```
-
-Start the control plane in a second terminal:
-
-```sh
-corepack pnpm --filter @kordo/control-plane dev
-```
-
-Start the Hatchet engine in a third terminal:
+Start Hatchet through the Hatchet CLI:
 
 ```sh
 curl -fsSL https://install.hatchet.run/install.sh | bash
 hatchet server start
 ```
 
-Open the Hatchet dashboard, create a local API token, and export it for both the
-control-plane API and orchestrator worker processes:
+Export the local Hatchet settings for both the control-plane API and
+orchestrator worker processes:
 
 ```sh
 export HATCHET_CLIENT_TOKEN="<local-hatchet-api-token>"
@@ -51,18 +89,22 @@ export HATCHET_CLIENT_TLS_STRATEGY="none"
 export KORDO_HATCHET_CLIENT_NAMESPACE="kordo"
 ```
 
-Start the orchestrator worker in a fourth terminal:
+Start the sandbox runner:
+
+```sh
+corepack pnpm --filter @kordo/runner dev
+```
+
+Start the control plane in another terminal:
+
+```sh
+corepack pnpm --filter @kordo/control-plane dev
+```
+
+Start the orchestrator worker in another terminal:
 
 ```sh
 corepack pnpm --filter @kordo/control-plane dev:orchestrator
-```
-
-The default local service URLs are:
-
-```text
-control plane: http://127.0.0.1:4100
-sandbox runner: http://127.0.0.1:4200
-hatchet:       http://127.0.0.1:8888
 ```
 
 Create a manual run:

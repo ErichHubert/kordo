@@ -1,5 +1,23 @@
 name: kordo-local
 
+x-kordo-app: &kordo-app
+  build:
+    context: ../..
+    dockerfile: infra/local/Dockerfile
+
+x-hatchet-client-env: &hatchet-client-env
+  HATCHET_CLIENT_API_URL: http://hatchet:8888
+  HATCHET_CLIENT_HOST_PORT: hatchet:7077
+  HATCHET_CLIENT_TLS_STRATEGY: none
+  KORDO_HATCHET_CLIENT_NAMESPACE: kordo
+  KORDO_HATCHET_CLIENT_TOKEN_FILE: /run/secrets/kordo/hatchet_client_token
+
+x-control-plane-env: &control-plane-env
+  DATABASE_URL: postgres://kordo:kordo@postgres:5432/kordo
+  KORDO_ARTIFACT_DIR: /data/artifacts
+  RUNNER_BASE_URL: http://runner:4200
+  <<: *hatchet-client-env
+
 services:
   postgres:
     image: postgres:18-alpine
@@ -17,5 +35,159 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql
 
+  hatchet-postgres:
+    image: postgres:17
+    command: ["postgres", "-c", "max_connections=200"]
+    environment:
+      POSTGRES_DB: hatchet
+      POSTGRES_PASSWORD: hatchet
+      POSTGRES_USER: hatchet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d hatchet -U hatchet"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - hatchet-postgres-data:/var/lib/postgresql/data
+
+  hatchet:
+    image: ghcr.io/hatchet-dev/hatchet/hatchet-lite:latest
+    depends_on:
+      hatchet-postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://hatchet:hatchet@hatchet-postgres:5432/hatchet?sslmode=disable
+      SERVER_AUTH_COOKIE_DOMAIN: localhost
+      SERVER_AUTH_COOKIE_INSECURE: "t"
+      SERVER_AUTH_SET_EMAIL_VERIFIED: "t"
+      SERVER_DEFAULT_ENGINE_VERSION: V1
+      SERVER_GRPC_BIND_ADDRESS: 0.0.0.0
+      SERVER_GRPC_BROADCAST_ADDRESS: localhost:7077
+      SERVER_GRPC_INSECURE: "t"
+      SERVER_GRPC_PORT: "7077"
+      SERVER_INTERNAL_CLIENT_INTERNAL_GRPC_BROADCAST_ADDRESS: localhost:7077
+      SERVER_URL: http://localhost:8888
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8733/ready || exit 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    ports:
+      - "7077:7077"
+      - "8888:8888"
+    volumes:
+      - hatchet-config:/config
+
+  hatchet-token:
+    image: ghcr.io/hatchet-dev/hatchet/hatchet-lite:latest
+    depends_on:
+      hatchet:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/usr/local/bin/kordo-hatchet-token"]
+    environment:
+      HATCHET_DATABASE_HOST: hatchet-postgres
+      HATCHET_DATABASE_PORT: "5432"
+      HATCHET_TENANT_ID: 707d0855-80ab-4e1f-a156-f1c4546cbf52
+      HATCHET_TOKEN_FILE: /hatchet-token/hatchet_client_token
+    volumes:
+      - hatchet-config:/config
+      - hatchet-token:/hatchet-token
+      - ./hatchet-token.sh:/usr/local/bin/kordo-hatchet-token:ro
+
+  migrate:
+    <<: *kordo-app
+    command: ["corepack", "pnpm", "--filter", "@kordo/control-plane", "db:migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://kordo:kordo@postgres:5432/kordo
+
+  runner:
+    <<: *kordo-app
+    command: ["corepack", "pnpm", "--filter", "@kordo/runner", "start"]
+    environment:
+      RUNNER_HOST: 0.0.0.0
+      RUNNER_PORT: "4200"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://127.0.0.1:4200/jobs/not-found'').then((response) => process.exit(response.status === 404 ? 0 : 1)).catch(() => process.exit(1))"',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "4200:4200"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  control-plane:
+    <<: *kordo-app
+    command: ["corepack", "pnpm", "--filter", "@kordo/control-plane", "start"]
+    depends_on:
+      hatchet-token:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+      runner:
+        condition: service_healthy
+    environment:
+      CONTROL_PLANE_HOST: 0.0.0.0
+      CONTROL_PLANE_PORT: "4100"
+      <<: *control-plane-env
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://127.0.0.1:4100/runs'').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "4100:4100"
+    volumes:
+      - hatchet-token:/run/secrets/kordo:ro
+      - kordo-artifacts:/data/artifacts
+
+  orchestrator-worker:
+    <<: *kordo-app
+    command: ["corepack", "pnpm", "--filter", "@kordo/control-plane", "start:orchestrator"]
+    depends_on:
+      control-plane:
+        condition: service_healthy
+      hatchet-token:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+      runner:
+        condition: service_healthy
+    environment:
+      <<: *control-plane-env
+    volumes:
+      - hatchet-token:/run/secrets/kordo:ro
+      - kordo-artifacts:/data/artifacts
+
+  smoke:
+    <<: *kordo-app
+    profiles:
+      - smoke
+    command: ["corepack", "pnpm", "smoke:local"]
+    depends_on:
+      control-plane:
+        condition: service_healthy
+      orchestrator-worker:
+        condition: service_started
+    environment:
+      KORDO_SMOKE_CONTROL_PLANE_URL: http://control-plane:4100
+
 volumes:
+  hatchet-config:
+  hatchet-postgres-data:
+  hatchet-token:
+  kordo-artifacts:
   postgres-data:

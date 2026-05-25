@@ -32,7 +32,15 @@ corepack pnpm lint
 corepack pnpm format:check
 corepack pnpm verify
 corepack pnpm smoke:local
+corepack pnpm dev:stack
+corepack pnpm smoke:stack
+corepack pnpm dev:stack:down
 ```
+
+`dev:stack` starts the full local platform through Docker Compose: PostgreSQL,
+Hatchet, migrations, the sandbox runner, the control-plane API, and the
+orchestrator worker. `smoke:stack` runs the walking-skeleton smoke test against
+that stack.
 
 ## Package Boundaries
 

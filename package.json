@@ -16,10 +16,13 @@
   "scripts": {
     "build": "corepack pnpm -r --if-present build",
     "dev": "corepack pnpm --parallel --filter @kordo/control-plane --filter @kordo/runner dev",
+    "dev:stack": "docker compose -f infra/local/compose.yaml up --build",
+    "dev:stack:down": "docker compose -f infra/local/compose.yaml down",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "smoke:local": "corepack pnpm --filter @kordo/control-plane smoke:local",
+    "smoke:stack": "docker compose -f infra/local/compose.yaml --profile smoke run --rm smoke",
     "test": "corepack pnpm --filter @kordo/contracts build && corepack pnpm --filter @kordo/policy build && corepack pnpm -r --if-present test",
     "typecheck": "corepack pnpm --filter @kordo/contracts build && corepack pnpm --filter @kordo/policy build && corepack pnpm -r --if-present typecheck",
     "verify": "corepack pnpm build && corepack pnpm typecheck && corepack pnpm test && corepack pnpm lint && corepack pnpm format:check"

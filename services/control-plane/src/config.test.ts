@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -78,6 +82,23 @@ describe("readConfig", () => {
       allowedGatewayRoutes: ["github.issues.write", "stripe.customers.create"],
       allowedSandboxProfiles: ["docker-local-default", "microvm-default"],
     });
+  });
+
+  it("reads the Hatchet token from a file when no token env is set", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "kordo-config-"));
+    const tokenPath = join(tempDir, "hatchet-token");
+
+    try {
+      writeFileSync(tokenPath, "file-token\n", "utf8");
+
+      const config = readConfig({
+        KORDO_HATCHET_CLIENT_TOKEN_FILE: tokenPath,
+      });
+
+      expect(config.hatchet.client.token).toBe("file-token");
+    } finally {
+      rmSync(tempDir, { force: true, recursive: true });
+    }
   });
 
   it("rejects invalid artifact limits", () => {

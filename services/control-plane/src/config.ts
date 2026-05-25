@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import type { RunPolicy } from "@kordo/policy";
 
 import { DEFAULT_ARTIFACT_LIMITS, type ArtifactLimits } from "./artifacts/artifact-limits.js";
@@ -63,7 +65,13 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     DEFAULT_HATCHET_CLIENT_NAMESPACE;
   const hatchetTlsStrategy =
     env.KORDO_HATCHET_CLIENT_TLS_STRATEGY ?? env.HATCHET_CLIENT_TLS_STRATEGY;
-  const hatchetToken = env.KORDO_HATCHET_CLIENT_TOKEN ?? env.HATCHET_CLIENT_TOKEN;
+  const hatchetToken =
+    env.KORDO_HATCHET_CLIENT_TOKEN ??
+    env.HATCHET_CLIENT_TOKEN ??
+    readSecretFile(
+      env.KORDO_HATCHET_CLIENT_TOKEN_FILE ?? env.HATCHET_CLIENT_TOKEN_FILE,
+      "KORDO_HATCHET_CLIENT_TOKEN_FILE",
+    );
 
   return {
     artifactDir: env.KORDO_ARTIFACT_DIR ?? ".kordo/artifacts",
@@ -181,6 +189,20 @@ function readStringList(value: string | undefined, defaultValue: readonly string
     .split(",")
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+}
+
+function readSecretFile(path: string | undefined, name: string): string | undefined {
+  if (!path) {
+    return undefined;
+  }
+
+  const value = readFileSync(path, "utf8").trim();
+
+  if (!value) {
+    throw new Error(`Invalid ${name}: file is empty.`);
+  }
+
+  return value;
 }
 
 function readRequiredStringList(
