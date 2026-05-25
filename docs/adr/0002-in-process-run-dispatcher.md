@@ -67,7 +67,7 @@ POST /runs
   -> emit run.created
   -> return HTTP 202
 
-Hatchet worker
+Orchestrator worker
   -> receive run.created
   -> dispatch runner job
   -> persist completed or failed result

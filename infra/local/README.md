@@ -22,7 +22,7 @@ Run the control-plane migrations:
 corepack pnpm --filter @kordo/control-plane db:migrate
 ```
 
-Start the runner:
+Start the sandbox runner:
 
 ```sh
 corepack pnpm --filter @kordo/runner dev
@@ -42,7 +42,7 @@ hatchet server start
 ```
 
 Open the Hatchet dashboard, create a local API token, and export it for both the
-control-plane API and worker processes:
+control-plane API and orchestrator worker processes:
 
 ```sh
 export HATCHET_CLIENT_TOKEN="<local-hatchet-api-token>"
@@ -50,17 +50,17 @@ export HATCHET_CLIENT_HOST_PORT="localhost:7077"
 export KORDO_HATCHET_CLIENT_NAMESPACE="kordo"
 ```
 
-Start the Hatchet worker in a fourth terminal:
+Start the orchestrator worker in a fourth terminal:
 
 ```sh
-corepack pnpm --filter @kordo/control-plane dev:worker
+corepack pnpm --filter @kordo/control-plane dev:orchestrator
 ```
 
 The default local service URLs are:
 
 ```text
 control plane: http://127.0.0.1:4100
-runner:        http://127.0.0.1:4200
+sandbox runner: http://127.0.0.1:4200
 hatchet:       http://127.0.0.1:8888
 ```
 
@@ -82,9 +82,9 @@ curl -sS -X POST http://127.0.0.1:4100/runs \
 
 In the current walking skeleton, `POST /runs` accepts a run and returns the
 queued run immediately with HTTP `202`. The control plane pushes a Hatchet
-`kordo.run.created` event. The Hatchet worker marks the run `running`, calls
-the runner, stores stdout and stderr as local artifacts, and marks the run
-complete. The runner starts a disposable Docker container, executes
+`kordo.run.created` event. The orchestrator worker marks the run `running`, calls
+the sandbox runner, stores stdout and stderr as local artifacts, and marks the run
+complete. The sandbox runner starts a disposable Docker container, executes
 `node --version`, captures stdout, stderr, exit code, duration, cleanup status,
 and an artifact manifest, then returns the result to the control plane.
 

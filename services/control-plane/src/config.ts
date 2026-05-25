@@ -14,9 +14,9 @@ export const DEFAULT_ALLOWED_GATEWAY_ROUTES = [] as const;
 
 export const DEFAULT_HATCHET_CLIENT_NAMESPACE = "kordo";
 
-export const DEFAULT_HATCHET_WORKER_NAME = "kordo-control-plane-worker";
+export const DEFAULT_ORCHESTRATOR_WORKER_NAME = "kordo-orchestrator-worker";
 
-export const DEFAULT_HATCHET_WORKER_SLOTS = 10;
+export const DEFAULT_ORCHESTRATOR_WORKER_SLOTS = 10;
 
 export const DEFAULT_HATCHET_ARTIFACT_CLEANUP_CRON = "0 0 * * *";
 
@@ -33,8 +33,8 @@ export interface HatchetClientConfig {
 export interface HatchetConfig {
   artifactCleanupCron: string;
   client: HatchetClientConfig;
-  workerName: string;
-  workerSlots: number;
+  orchestratorWorkerName: string;
+  orchestratorWorkerSlots: number;
 }
 
 export interface ControlPlaneConfig {
@@ -93,10 +93,11 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
         namespace: hatchetNamespace,
         ...(hatchetToken ? { token: hatchetToken } : {}),
       },
-      workerName: env.KORDO_HATCHET_WORKER_NAME ?? DEFAULT_HATCHET_WORKER_NAME,
-      workerSlots: readPositiveInteger(
-        env.KORDO_HATCHET_WORKER_SLOTS ?? String(DEFAULT_HATCHET_WORKER_SLOTS),
-        "KORDO_HATCHET_WORKER_SLOTS",
+      orchestratorWorkerName:
+        env.KORDO_ORCHESTRATOR_WORKER_NAME ?? DEFAULT_ORCHESTRATOR_WORKER_NAME,
+      orchestratorWorkerSlots: readPositiveInteger(
+        env.KORDO_ORCHESTRATOR_WORKER_SLOTS ?? String(DEFAULT_ORCHESTRATOR_WORKER_SLOTS),
+        "KORDO_ORCHESTRATOR_WORKER_SLOTS",
       ),
     },
     host: env.CONTROL_PLANE_HOST ?? "0.0.0.0",

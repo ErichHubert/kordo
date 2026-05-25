@@ -2,7 +2,7 @@
 
 Kordo is the reusable workflow execution platform for agent-driven runs. This
 repository starts with the smallest walking skeleton: shared contracts, a
-control-plane service, a runner service, and local infrastructure.
+control-plane service, a sandbox runner service, and local infrastructure.
 
 ## Milestone 1
 
@@ -13,10 +13,11 @@ tooling. It does not implement the run lifecycle yet.
 
 The current walking skeleton accepts a manual run through the control plane,
 persists queued/running/completed lifecycle events in PostgreSQL, pushes a
-Hatchet `kordo.run.created` event, executes `node --version` in a disposable
-Docker-local sandbox through the runner, and persists the final execution result
-for inspection through the control-plane API. The control plane stores stdout and
-stderr as local artifacts and exposes them through run-scoped artifact URLs.
+Hatchet `kordo.run.created` event, coordinates execution through an orchestrator
+worker, executes `node --version` in a disposable Docker-local sandbox through
+the sandbox runner, and persists the final execution result for inspection
+through the control-plane API. The control plane stores stdout and stderr as
+local artifacts and exposes them through run-scoped artifact URLs.
 Local log artifacts are limited, can be truncated, and can be cleaned up after a
 retention period.
 
@@ -59,8 +60,8 @@ Run dispatch is Hatchet-backed:
 HATCHET_CLIENT_TOKEN=<local-hatchet-api-token>
 HATCHET_CLIENT_HOST_PORT=localhost:7077
 KORDO_HATCHET_CLIENT_NAMESPACE=kordo
-KORDO_HATCHET_WORKER_NAME=kordo-control-plane-worker
-KORDO_HATCHET_WORKER_SLOTS=10
+KORDO_ORCHESTRATOR_WORKER_NAME=kordo-orchestrator-worker
+KORDO_ORCHESTRATOR_WORKER_SLOTS=10
 ```
 
 ## Artifact Storage

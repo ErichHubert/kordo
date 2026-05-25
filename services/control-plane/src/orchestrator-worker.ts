@@ -7,7 +7,7 @@ import { createKordoHatchetWorkflows } from "./hatchet/workflows.js";
 import { createPostgresRunRepository } from "./repositories/postgres-run-repository.js";
 import { HttpRunnerClient } from "./runner-client.js";
 
-export async function startHatchetWorker(): Promise<void> {
+export async function startOrchestratorWorker(): Promise<void> {
   const config = readConfig();
   const repository = createPostgresRunRepository(config.databaseUrl);
   const runnerClient = new HttpRunnerClient(config.runnerBaseUrl);
@@ -23,9 +23,9 @@ export async function startHatchetWorker(): Promise<void> {
     repository,
     runnerClient,
   });
-  const worker = await hatchet.worker(config.hatchet.workerName, {
+  const worker = await hatchet.worker(config.hatchet.orchestratorWorkerName, {
     handleKill: true,
-    slots: config.hatchet.workerSlots,
+    slots: config.hatchet.orchestratorWorkerSlots,
     workflows,
   });
 
@@ -33,7 +33,7 @@ export async function startHatchetWorker(): Promise<void> {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  startHatchetWorker().catch((error: unknown) => {
+  startOrchestratorWorker().catch((error: unknown) => {
     console.error(error);
     process.exitCode = 1;
   });

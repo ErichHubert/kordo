@@ -7,8 +7,8 @@ import {
   DEFAULT_ALLOWED_SANDBOX_PROFILES,
   DEFAULT_HATCHET_ARTIFACT_CLEANUP_CRON,
   DEFAULT_HATCHET_CLIENT_NAMESPACE,
-  DEFAULT_HATCHET_WORKER_NAME,
-  DEFAULT_HATCHET_WORKER_SLOTS,
+  DEFAULT_ORCHESTRATOR_WORKER_NAME,
+  DEFAULT_ORCHESTRATOR_WORKER_SLOTS,
   readConfig,
 } from "./config.js";
 
@@ -27,8 +27,8 @@ describe("readConfig", () => {
       client: {
         namespace: DEFAULT_HATCHET_CLIENT_NAMESPACE,
       },
-      workerName: DEFAULT_HATCHET_WORKER_NAME,
-      workerSlots: DEFAULT_HATCHET_WORKER_SLOTS,
+      orchestratorWorkerName: DEFAULT_ORCHESTRATOR_WORKER_NAME,
+      orchestratorWorkerSlots: DEFAULT_ORCHESTRATOR_WORKER_SLOTS,
     });
     expect(config.runPolicy).toEqual({
       allowedGatewayRoutes: DEFAULT_ALLOWED_GATEWAY_ROUTES,
@@ -48,8 +48,8 @@ describe("readConfig", () => {
       KORDO_HATCHET_CLIENT_LOG_LEVEL: "DEBUG",
       KORDO_HATCHET_CLIENT_NAMESPACE: "kordo-test",
       KORDO_HATCHET_CLIENT_TOKEN: "hatchet-token",
-      KORDO_HATCHET_WORKER_NAME: "test-worker",
-      KORDO_HATCHET_WORKER_SLOTS: "3",
+      KORDO_ORCHESTRATOR_WORKER_NAME: "test-orchestrator",
+      KORDO_ORCHESTRATOR_WORKER_SLOTS: "3",
       KORDO_MAX_ARTIFACT_BYTES: "1000",
       KORDO_MAX_RUN_ARTIFACT_BYTES: "5000",
     });
@@ -69,8 +69,8 @@ describe("readConfig", () => {
         namespace: "kordo-test",
         token: "hatchet-token",
       },
-      workerName: "test-worker",
-      workerSlots: 3,
+      orchestratorWorkerName: "test-orchestrator",
+      orchestratorWorkerSlots: 3,
     });
     expect(config.runPolicy).toEqual({
       allowedGatewayRoutes: ["github.issues.write", "stripe.customers.create"],
@@ -102,11 +102,11 @@ describe("readConfig", () => {
     ).toThrow("Invalid KORDO_HATCHET_CLIENT_LOG_LEVEL");
   });
 
-  it("rejects invalid Hatchet worker slot config", () => {
+  it("rejects invalid orchestrator worker slot config", () => {
     expect(() =>
       readConfig({
-        KORDO_HATCHET_WORKER_SLOTS: "0",
+        KORDO_ORCHESTRATOR_WORKER_SLOTS: "0",
       }),
-    ).toThrow("Invalid KORDO_HATCHET_WORKER_SLOTS");
+    ).toThrow("Invalid KORDO_ORCHESTRATOR_WORKER_SLOTS");
   });
 });
