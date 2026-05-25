@@ -1,5 +1,4 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
-import { serve } from "inngest/fastify";
 
 import {
   NonEmptyStringSchema,
@@ -8,7 +7,6 @@ import {
   type RunState,
 } from "@kordo/contracts";
 import { validateRunRequestPolicy, type RunPolicy } from "@kordo/policy";
-import type { Inngest, InngestFunction } from "inngest";
 
 import type { ArtifactStore } from "./artifacts/artifact-store.js";
 import type { RunRepository } from "./repositories/run-repository.js";
@@ -22,14 +20,6 @@ export interface BuildAppOptions {
   logger?: FastifyServerOptions["logger"];
   repository: RunRepository;
   runPolicy: RunPolicy;
-  inngest?: InngestServeOptions;
-}
-
-export interface InngestServeOptions {
-  client: Inngest.Like;
-  functions: InngestFunction.Like[];
-  serveOrigin?: string;
-  servePath: string;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
@@ -43,19 +33,6 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     await dispatcher.close?.();
     await options.repository.close?.();
   });
-
-  if (options.inngest) {
-    app.route({
-      handler: serve({
-        client: options.inngest.client,
-        functions: options.inngest.functions,
-        servePath: options.inngest.servePath,
-        ...(options.inngest.serveOrigin ? { serveOrigin: options.inngest.serveOrigin } : {}),
-      }),
-      method: ["GET", "POST", "PUT"],
-      url: options.inngest.servePath,
-    });
-  }
 
   app.post("/runs", async (request, reply) => {
     const parsed = RunRequestSchema.safeParse(request.body);

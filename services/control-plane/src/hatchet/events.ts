@@ -1,24 +1,14 @@
 import { RunnerJobSchema, type RunnerJob } from "@kordo/contracts";
 
-export const KORDO_RUN_CREATED_EVENT_NAME = "kordo/run.created";
+export const KORDO_RUN_CREATED_EVENT_KEY = "kordo.run.created";
 
 export interface KordoRunCreatedEventData {
   job: RunnerJob;
 }
 
-export interface KordoRunCreatedEventPayload {
-  data: KordoRunCreatedEventData;
-  id: string;
-  name: typeof KORDO_RUN_CREATED_EVENT_NAME;
-}
-
-export function createRunCreatedEvent(job: RunnerJob): KordoRunCreatedEventPayload {
+export function createRunCreatedEventData(job: RunnerJob): KordoRunCreatedEventData {
   return {
-    data: {
-      job,
-    },
-    id: job.id,
-    name: KORDO_RUN_CREATED_EVENT_NAME,
+    job,
   };
 }
 

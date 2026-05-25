@@ -12,8 +12,8 @@ tooling. It does not implement the run lifecycle yet.
 ## Walking Skeleton
 
 The current walking skeleton accepts a manual run through the control plane,
-persists queued/running/completed lifecycle events in PostgreSQL, emits an
-Inngest `kordo/run.created` event, executes `node --version` in a disposable
+persists queued/running/completed lifecycle events in PostgreSQL, pushes a
+Hatchet `kordo.run.created` event, executes `node --version` in a disposable
 Docker-local sandbox through the runner, and persists the final execution result
 for inspection through the control-plane API. The control plane stores stdout and
 stderr as local artifacts and exposes them through run-scoped artifact URLs.
@@ -53,11 +53,14 @@ KORDO_ALLOWED_GATEWAY_ROUTES=
 
 ## Run Dispatch
 
-Run dispatch is Inngest-backed:
+Run dispatch is Hatchet-backed:
 
 ```text
-KORDO_INNGEST_DEV=true
-KORDO_INNGEST_SERVE_PATH=/api/inngest
+HATCHET_CLIENT_TOKEN=<local-hatchet-api-token>
+HATCHET_CLIENT_HOST_PORT=localhost:7077
+KORDO_HATCHET_CLIENT_NAMESPACE=kordo
+KORDO_HATCHET_WORKER_NAME=kordo-control-plane-worker
+KORDO_HATCHET_WORKER_SLOTS=10
 ```
 
 ## Artifact Storage

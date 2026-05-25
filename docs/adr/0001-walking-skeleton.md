@@ -21,5 +21,5 @@ lifecycle.
 
 - Early milestones favor clarity and reviewability over final isolation strength.
 - Docker-local is a development backend, not the final security boundary.
-- MicroVMs, Veyra, PI.dev, Inngest, and GitHub triggers are deferred until the
+- MicroVMs, Veyra, PI.dev, and GitHub triggers are deferred until the
   run lifecycle is proven.

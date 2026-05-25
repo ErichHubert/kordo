@@ -418,7 +418,7 @@ describe("control-plane run API", () => {
 
   it("marks a run failed when dispatch scheduling fails", async () => {
     const testContext = createTestApp({
-      dispatcher: createRejectingRunDispatcher(new Error("Inngest event send failed")),
+      dispatcher: createRejectingRunDispatcher(new Error("Hatchet event push failed")),
     });
     app = testContext.app;
 
@@ -437,7 +437,7 @@ describe("control-plane run API", () => {
       currentPhase: null,
       failureReason: {
         code: "RunnerDispatchFailed",
-        message: "Inngest event send failed",
+        message: "Hatchet event push failed",
       },
     });
 

@@ -12,18 +12,29 @@ export const DEFAULT_ALLOWED_SANDBOX_PROFILES = ["docker-local-default"] as cons
 
 export const DEFAULT_ALLOWED_GATEWAY_ROUTES = [] as const;
 
-export const DEFAULT_INNGEST_APP_ID = "kordo-control-plane";
+export const DEFAULT_HATCHET_CLIENT_NAMESPACE = "kordo";
 
-export const DEFAULT_INNGEST_SERVE_PATH = "/api/inngest";
+export const DEFAULT_HATCHET_WORKER_NAME = "kordo-control-plane-worker";
 
-export interface InngestConfig {
-  appId: string;
-  baseUrl?: string;
-  dev: boolean;
-  eventKey?: string;
-  serveOrigin?: string;
-  servePath: string;
-  signingKey?: string;
+export const DEFAULT_HATCHET_WORKER_SLOTS = 10;
+
+export const DEFAULT_HATCHET_ARTIFACT_CLEANUP_CRON = "0 0 * * *";
+
+export type HatchetLogLevel = "OFF" | "DEBUG" | "INFO" | "WARN" | "ERROR";
+
+export interface HatchetClientConfig {
+  apiUrl?: string;
+  hostPort?: string;
+  logLevel?: HatchetLogLevel;
+  namespace?: string;
+  token?: string;
+}
+
+export interface HatchetConfig {
+  artifactCleanupCron: string;
+  client: HatchetClientConfig;
+  workerName: string;
+  workerSlots: number;
 }
 
 export interface ControlPlaneConfig {
@@ -32,18 +43,22 @@ export interface ControlPlaneConfig {
   artifactLimits: ArtifactLimits;
   artifactRetentionDays: number;
   databaseUrl: string;
+  hatchet: HatchetConfig;
   host: string;
-  inngest: InngestConfig;
   port: number;
   runPolicy: RunPolicy;
   runnerBaseUrl: string;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneConfig {
-  const inngestBaseUrl = env.KORDO_INNGEST_BASE_URL;
-  const inngestEventKey = env.KORDO_INNGEST_EVENT_KEY ?? env.INNGEST_EVENT_KEY;
-  const inngestServeOrigin = env.KORDO_INNGEST_SERVE_ORIGIN;
-  const inngestSigningKey = env.KORDO_INNGEST_SIGNING_KEY ?? env.INNGEST_SIGNING_KEY;
+  const hatchetApiUrl = env.KORDO_HATCHET_CLIENT_API_URL ?? env.HATCHET_CLIENT_API_URL;
+  const hatchetHostPort = env.KORDO_HATCHET_CLIENT_HOST_PORT ?? env.HATCHET_CLIENT_HOST_PORT;
+  const hatchetLogLevel = env.KORDO_HATCHET_CLIENT_LOG_LEVEL ?? env.HATCHET_CLIENT_LOG_LEVEL;
+  const hatchetNamespace =
+    env.KORDO_HATCHET_CLIENT_NAMESPACE ??
+    env.HATCHET_CLIENT_NAMESPACE ??
+    DEFAULT_HATCHET_CLIENT_NAMESPACE;
+  const hatchetToken = env.KORDO_HATCHET_CLIENT_TOKEN ?? env.HATCHET_CLIENT_TOKEN;
 
   return {
     artifactDir: env.KORDO_ARTIFACT_DIR ?? ".kordo/artifacts",
@@ -66,16 +81,25 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
       "KORDO_ARTIFACT_RETENTION_DAYS",
     ),
     databaseUrl: env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
-    host: env.CONTROL_PLANE_HOST ?? "0.0.0.0",
-    inngest: {
-      appId: env.KORDO_INNGEST_APP_ID ?? DEFAULT_INNGEST_APP_ID,
-      ...(inngestBaseUrl ? { baseUrl: inngestBaseUrl } : {}),
-      dev: readBoolean(env.KORDO_INNGEST_DEV ?? "true", "KORDO_INNGEST_DEV"),
-      ...(inngestEventKey ? { eventKey: inngestEventKey } : {}),
-      ...(inngestServeOrigin ? { serveOrigin: inngestServeOrigin } : {}),
-      servePath: env.KORDO_INNGEST_SERVE_PATH ?? DEFAULT_INNGEST_SERVE_PATH,
-      ...(inngestSigningKey ? { signingKey: inngestSigningKey } : {}),
+    hatchet: {
+      artifactCleanupCron:
+        env.KORDO_HATCHET_ARTIFACT_CLEANUP_CRON ?? DEFAULT_HATCHET_ARTIFACT_CLEANUP_CRON,
+      client: {
+        ...(hatchetApiUrl ? { apiUrl: hatchetApiUrl } : {}),
+        ...(hatchetHostPort ? { hostPort: hatchetHostPort } : {}),
+        ...(hatchetLogLevel
+          ? { logLevel: readHatchetLogLevel(hatchetLogLevel, "KORDO_HATCHET_CLIENT_LOG_LEVEL") }
+          : {}),
+        namespace: hatchetNamespace,
+        ...(hatchetToken ? { token: hatchetToken } : {}),
+      },
+      workerName: env.KORDO_HATCHET_WORKER_NAME ?? DEFAULT_HATCHET_WORKER_NAME,
+      workerSlots: readPositiveInteger(
+        env.KORDO_HATCHET_WORKER_SLOTS ?? String(DEFAULT_HATCHET_WORKER_SLOTS),
+        "KORDO_HATCHET_WORKER_SLOTS",
+      ),
     },
+    host: env.CONTROL_PLANE_HOST ?? "0.0.0.0",
     port: readPort(env.CONTROL_PLANE_PORT ?? "4100"),
     runPolicy: {
       allowedGatewayRoutes: readStringList(
@@ -112,13 +136,15 @@ function readPositiveInteger(value: string, name: string): number {
   return parsed;
 }
 
-function readBoolean(value: string, name: string): boolean {
-  if (value === "true" || value === "1") {
-    return true;
-  }
-
-  if (value === "false" || value === "0") {
-    return false;
+function readHatchetLogLevel(value: string, name: string): HatchetLogLevel {
+  if (
+    value === "OFF" ||
+    value === "DEBUG" ||
+    value === "INFO" ||
+    value === "WARN" ||
+    value === "ERROR"
+  ) {
+    return value;
   }
 
   throw new Error(`Invalid ${name}: ${value}`);

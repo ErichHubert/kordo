@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [ADR 0007](./0007-inngest-run-dispatch.md). The production
+Superseded by [ADR 0007](./0007-hatchet-run-dispatch.md). The production
 in-process dispatcher was removed in Milestone 11.1.
 
 ## Context
@@ -11,7 +11,7 @@ Milestone 9 changed `POST /runs` from synchronous execution to asynchronous
 dispatch. The control plane now accepts a run, stores it as `queued`, and returns
 HTTP `202` before runner execution completes.
 
-Kordo will likely use Inngest or another event-backed orchestrator later, but
+Kordo will likely use Hatchet or another event-backed orchestrator later, but
 the current walking skeleton still needs a small implementation that proves the
 control-plane API shape, state transitions, failure semantics, and runner
 contract without introducing another distributed dependency.
@@ -52,12 +52,12 @@ in-process dispatcher
 - Shutdown waits for in-flight dispatches instead of abandoning them
   intentionally.
 - If the process crashes, in-flight work is not recovered automatically.
-- Inngest is still deferred until the run lifecycle and failure semantics are
+- Hatchet is still deferred until the run lifecycle and failure semantics are
   stable enough to move behind an orchestrator boundary.
 
 ## Future Migration
 
-When Inngest is introduced, it should replace or implement the dispatcher
+When Hatchet is introduced, it should replace or implement the dispatcher
 boundary instead of changing the public control-plane routes. The expected shape
 is:
 
@@ -67,7 +67,7 @@ POST /runs
   -> emit run.created
   -> return HTTP 202
 
-Inngest function
+Hatchet worker
   -> receive run.created
   -> dispatch runner job
   -> persist completed or failed result

@@ -44,7 +44,7 @@ and does not delete queued or running run artifacts.
   local artifact files are deleted.
 - Reading an artifact whose file has been removed returns
   `ArtifactContentNotFound`.
-- Cleanup can run manually or through the scheduled Inngest cleanup function.
+- Cleanup can run manually or through the scheduled Hatchet cleanup workflow.
 
 ## Deferred
 

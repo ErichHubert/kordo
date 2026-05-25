@@ -10,16 +10,18 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "dev": "tsx watch src/index.ts",
+    "dev:worker": "tsx watch src/hatchet-worker.ts",
     "start": "node dist/index.js",
+    "start:worker": "node dist/hatchet-worker.js",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@hatchet-dev/typescript-sdk": "^1.22.3",
     "@kordo/contracts": "workspace:*",
     "@kordo/policy": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.8.5",
-    "inngest": "^4.4.0",
     "pg": "^8.20.0"
   },
   "devDependencies": {

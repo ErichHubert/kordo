@@ -5,8 +5,10 @@ import {
   DEFAULT_ARTIFACT_RETENTION_DAYS,
   DEFAULT_ALLOWED_GATEWAY_ROUTES,
   DEFAULT_ALLOWED_SANDBOX_PROFILES,
-  DEFAULT_INNGEST_APP_ID,
-  DEFAULT_INNGEST_SERVE_PATH,
+  DEFAULT_HATCHET_ARTIFACT_CLEANUP_CRON,
+  DEFAULT_HATCHET_CLIENT_NAMESPACE,
+  DEFAULT_HATCHET_WORKER_NAME,
+  DEFAULT_HATCHET_WORKER_SLOTS,
   readConfig,
 } from "./config.js";
 
@@ -20,10 +22,13 @@ describe("readConfig", () => {
       maxRunArtifactBytes: 52_428_800,
     });
     expect(config.artifactRetentionDays).toBe(DEFAULT_ARTIFACT_RETENTION_DAYS);
-    expect(config.inngest).toEqual({
-      appId: DEFAULT_INNGEST_APP_ID,
-      dev: true,
-      servePath: DEFAULT_INNGEST_SERVE_PATH,
+    expect(config.hatchet).toEqual({
+      artifactCleanupCron: DEFAULT_HATCHET_ARTIFACT_CLEANUP_CRON,
+      client: {
+        namespace: DEFAULT_HATCHET_CLIENT_NAMESPACE,
+      },
+      workerName: DEFAULT_HATCHET_WORKER_NAME,
+      workerSlots: DEFAULT_HATCHET_WORKER_SLOTS,
     });
     expect(config.runPolicy).toEqual({
       allowedGatewayRoutes: DEFAULT_ALLOWED_GATEWAY_ROUTES,
@@ -31,19 +36,20 @@ describe("readConfig", () => {
     });
   });
 
-  it("reads artifact retention, limits, Inngest, and run policy from the environment", () => {
+  it("reads artifact retention, limits, Hatchet, and run policy from the environment", () => {
     const config = readConfig({
       KORDO_ARTIFACT_CLEANUP_BATCH_SIZE: "25",
       KORDO_ARTIFACT_RETENTION_DAYS: "14",
       KORDO_ALLOWED_GATEWAY_ROUTES: "github.issues.write, stripe.customers.create",
       KORDO_ALLOWED_SANDBOX_PROFILES: "docker-local-default, microvm-default",
-      KORDO_INNGEST_APP_ID: "kordo-test",
-      KORDO_INNGEST_BASE_URL: "http://127.0.0.1:8288",
-      KORDO_INNGEST_DEV: "false",
-      KORDO_INNGEST_EVENT_KEY: "event-key",
-      KORDO_INNGEST_SERVE_ORIGIN: "http://127.0.0.1:4100",
-      KORDO_INNGEST_SERVE_PATH: "/custom/inngest",
-      KORDO_INNGEST_SIGNING_KEY: "signing-key",
+      KORDO_HATCHET_ARTIFACT_CLEANUP_CRON: "*/15 * * * *",
+      KORDO_HATCHET_CLIENT_API_URL: "http://127.0.0.1:8888",
+      KORDO_HATCHET_CLIENT_HOST_PORT: "127.0.0.1:7077",
+      KORDO_HATCHET_CLIENT_LOG_LEVEL: "DEBUG",
+      KORDO_HATCHET_CLIENT_NAMESPACE: "kordo-test",
+      KORDO_HATCHET_CLIENT_TOKEN: "hatchet-token",
+      KORDO_HATCHET_WORKER_NAME: "test-worker",
+      KORDO_HATCHET_WORKER_SLOTS: "3",
       KORDO_MAX_ARTIFACT_BYTES: "1000",
       KORDO_MAX_RUN_ARTIFACT_BYTES: "5000",
     });
@@ -54,14 +60,17 @@ describe("readConfig", () => {
       maxRunArtifactBytes: 5000,
     });
     expect(config.artifactRetentionDays).toBe(14);
-    expect(config.inngest).toEqual({
-      appId: "kordo-test",
-      baseUrl: "http://127.0.0.1:8288",
-      dev: false,
-      eventKey: "event-key",
-      serveOrigin: "http://127.0.0.1:4100",
-      servePath: "/custom/inngest",
-      signingKey: "signing-key",
+    expect(config.hatchet).toEqual({
+      artifactCleanupCron: "*/15 * * * *",
+      client: {
+        apiUrl: "http://127.0.0.1:8888",
+        hostPort: "127.0.0.1:7077",
+        logLevel: "DEBUG",
+        namespace: "kordo-test",
+        token: "hatchet-token",
+      },
+      workerName: "test-worker",
+      workerSlots: 3,
     });
     expect(config.runPolicy).toEqual({
       allowedGatewayRoutes: ["github.issues.write", "stripe.customers.create"],
@@ -85,11 +94,19 @@ describe("readConfig", () => {
     ).toThrow("Invalid KORDO_ALLOWED_SANDBOX_PROFILES");
   });
 
-  it("rejects invalid Inngest dev config", () => {
+  it("rejects invalid Hatchet log level config", () => {
     expect(() =>
       readConfig({
-        KORDO_INNGEST_DEV: "maybe",
+        KORDO_HATCHET_CLIENT_LOG_LEVEL: "TRACE",
       }),
-    ).toThrow("Invalid KORDO_INNGEST_DEV");
+    ).toThrow("Invalid KORDO_HATCHET_CLIENT_LOG_LEVEL");
+  });
+
+  it("rejects invalid Hatchet worker slot config", () => {
+    expect(() =>
+      readConfig({
+        KORDO_HATCHET_WORKER_SLOTS: "0",
+      }),
+    ).toThrow("Invalid KORDO_HATCHET_WORKER_SLOTS");
   });
 });

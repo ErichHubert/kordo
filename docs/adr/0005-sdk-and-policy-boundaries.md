@@ -7,7 +7,7 @@ Accepted
 ## Context
 
 The walking skeleton now has stable control-plane APIs and basic run safety
-rules. Inngest, the future UI, and later PI/gateway integrations will need to
+rules. Hatchet, the future UI, and later PI/gateway integrations will need to
 call the same APIs and apply the same run admission decisions.
 
 ## Decision
@@ -25,7 +25,7 @@ owned by control-plane runtime config.
 
 - Future UI and orchestration code can reuse the SDK instead of duplicating
   fetch and response validation logic.
-- Policy decisions are centralized before Inngest introduces another execution
+- Policy decisions are centralized before Hatchet introduces another execution
   path.
 - The policy package is intentionally simple allowlist logic, not a policy
   engine.
