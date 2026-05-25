@@ -13,6 +13,7 @@
     "dev:orchestrator": "tsx watch src/orchestrator-worker.ts",
     "start": "node dist/index.js",
     "start:orchestrator": "node dist/orchestrator-worker.js",
+    "smoke:local": "corepack pnpm --filter @kordo/contracts build && tsc -p tsconfig.build.json && node dist/smoke/local-walking-skeleton.js",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

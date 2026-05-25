@@ -22,11 +22,14 @@ export const DEFAULT_HATCHET_ARTIFACT_CLEANUP_CRON = "0 0 * * *";
 
 export type HatchetLogLevel = "OFF" | "DEBUG" | "INFO" | "WARN" | "ERROR";
 
+export type HatchetTlsStrategy = "tls" | "mtls" | "none";
+
 export interface HatchetClientConfig {
   apiUrl?: string;
   hostPort?: string;
   logLevel?: HatchetLogLevel;
   namespace?: string;
+  tlsStrategy?: HatchetTlsStrategy;
   token?: string;
 }
 
@@ -58,6 +61,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     env.KORDO_HATCHET_CLIENT_NAMESPACE ??
     env.HATCHET_CLIENT_NAMESPACE ??
     DEFAULT_HATCHET_CLIENT_NAMESPACE;
+  const hatchetTlsStrategy =
+    env.KORDO_HATCHET_CLIENT_TLS_STRATEGY ?? env.HATCHET_CLIENT_TLS_STRATEGY;
   const hatchetToken = env.KORDO_HATCHET_CLIENT_TOKEN ?? env.HATCHET_CLIENT_TOKEN;
 
   return {
@@ -91,6 +96,14 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
           ? { logLevel: readHatchetLogLevel(hatchetLogLevel, "KORDO_HATCHET_CLIENT_LOG_LEVEL") }
           : {}),
         namespace: hatchetNamespace,
+        ...(hatchetTlsStrategy
+          ? {
+              tlsStrategy: readHatchetTlsStrategy(
+                hatchetTlsStrategy,
+                "KORDO_HATCHET_CLIENT_TLS_STRATEGY",
+              ),
+            }
+          : {}),
         ...(hatchetToken ? { token: hatchetToken } : {}),
       },
       orchestratorWorkerName:
@@ -145,6 +158,14 @@ function readHatchetLogLevel(value: string, name: string): HatchetLogLevel {
     value === "WARN" ||
     value === "ERROR"
   ) {
+    return value;
+  }
+
+  throw new Error(`Invalid ${name}: ${value}`);
+}
+
+function readHatchetTlsStrategy(value: string, name: string): HatchetTlsStrategy {
+  if (value === "tls" || value === "mtls" || value === "none") {
     return value;
   }
 

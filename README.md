@@ -31,6 +31,7 @@ corepack pnpm test
 corepack pnpm lint
 corepack pnpm format:check
 corepack pnpm verify
+corepack pnpm smoke:local
 ```
 
 ## Package Boundaries
@@ -58,7 +59,8 @@ Run dispatch is Hatchet-backed:
 
 ```text
 HATCHET_CLIENT_TOKEN=<local-hatchet-api-token>
-HATCHET_CLIENT_HOST_PORT=localhost:7077
+HATCHET_CLIENT_HOST_PORT=127.0.0.1:7077
+HATCHET_CLIENT_TLS_STRATEGY=none
 KORDO_HATCHET_CLIENT_NAMESPACE=kordo
 KORDO_ORCHESTRATOR_WORKER_NAME=kordo-orchestrator-worker
 KORDO_ORCHESTRATOR_WORKER_SLOTS=10

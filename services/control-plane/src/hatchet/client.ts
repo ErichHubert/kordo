@@ -10,6 +10,7 @@ export function createKordoHatchetClient(config: HatchetClientConfig): KordoHatc
     ...(config.hostPort ? { host_port: config.hostPort } : {}),
     ...(config.logLevel ? { log_level: config.logLevel } : {}),
     ...(config.namespace ? { namespace: config.namespace } : {}),
+    ...(config.tlsStrategy ? { tls_config: { tls_strategy: config.tlsStrategy } } : {}),
     ...(config.token ? { token: config.token } : {}),
   });
 }

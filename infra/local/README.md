@@ -46,7 +46,8 @@ control-plane API and orchestrator worker processes:
 
 ```sh
 export HATCHET_CLIENT_TOKEN="<local-hatchet-api-token>"
-export HATCHET_CLIENT_HOST_PORT="localhost:7077"
+export HATCHET_CLIENT_HOST_PORT="127.0.0.1:7077"
+export HATCHET_CLIENT_TLS_STRATEGY="none"
 export KORDO_HATCHET_CLIENT_NAMESPACE="kordo"
 ```
 
@@ -78,6 +79,12 @@ curl -sS -X POST http://127.0.0.1:4100/runs \
     "sandboxProfile": "docker-local-default",
     "allowedGatewayRoutes": []
   }'
+```
+
+Or run the local smoke test:
+
+```sh
+corepack pnpm smoke:local
 ```
 
 In the current walking skeleton, `POST /runs` accepts a run and returns the

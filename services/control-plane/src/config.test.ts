@@ -47,6 +47,7 @@ describe("readConfig", () => {
       KORDO_HATCHET_CLIENT_HOST_PORT: "127.0.0.1:7077",
       KORDO_HATCHET_CLIENT_LOG_LEVEL: "DEBUG",
       KORDO_HATCHET_CLIENT_NAMESPACE: "kordo-test",
+      KORDO_HATCHET_CLIENT_TLS_STRATEGY: "none",
       KORDO_HATCHET_CLIENT_TOKEN: "hatchet-token",
       KORDO_ORCHESTRATOR_WORKER_NAME: "test-orchestrator",
       KORDO_ORCHESTRATOR_WORKER_SLOTS: "3",
@@ -67,6 +68,7 @@ describe("readConfig", () => {
         hostPort: "127.0.0.1:7077",
         logLevel: "DEBUG",
         namespace: "kordo-test",
+        tlsStrategy: "none",
         token: "hatchet-token",
       },
       orchestratorWorkerName: "test-orchestrator",
@@ -108,5 +110,13 @@ describe("readConfig", () => {
         KORDO_ORCHESTRATOR_WORKER_SLOTS: "0",
       }),
     ).toThrow("Invalid KORDO_ORCHESTRATOR_WORKER_SLOTS");
+  });
+
+  it("rejects invalid Hatchet TLS strategy config", () => {
+    expect(() =>
+      readConfig({
+        KORDO_HATCHET_CLIENT_TLS_STRATEGY: "plain",
+      }),
+    ).toThrow("Invalid KORDO_HATCHET_CLIENT_TLS_STRATEGY");
   });
 });
