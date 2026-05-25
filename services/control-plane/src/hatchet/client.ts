@@ -1,4 +1,4 @@
-import { HatchetClient } from "@hatchet-dev/typescript-sdk";
+import { HatchetClient } from "@hatchet-dev/typescript-sdk/v1/index.js";
 
 import type { HatchetClientConfig } from "../config.js";
 

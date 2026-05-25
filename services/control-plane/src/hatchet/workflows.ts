@@ -1,4 +1,4 @@
-import type { BaseWorkflowDeclaration, JsonObject } from "@hatchet-dev/typescript-sdk";
+import type { BaseWorkflowDeclaration, JsonObject } from "@hatchet-dev/typescript-sdk/v1/index.js";
 
 import {
   cleanupExpiredArtifacts,
